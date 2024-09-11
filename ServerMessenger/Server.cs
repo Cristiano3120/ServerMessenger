@@ -23,7 +23,7 @@ namespace ServerMessenger
         public static void StopServer(string reason)
         {
             Console.WriteLine("Stopping the Server");
-            throw new NotImplementedException(reason);
+            throw new Exception(reason);
         }
 
         public static async Task SendPayloadAsync(TcpClient client, string payload, EncryptionMode encryption = EncryptionMode.AES)
@@ -33,11 +33,10 @@ namespace ServerMessenger
                 Console.WriteLine(payload);
                 Console.WriteLine($"Trying to send {encryption} encrypted data");
                 var buffer = payload != null ? Encoding.UTF8.GetBytes(payload) : throw new ArgumentNullException(nameof(payload));
-                switch (encryption)
+                if (encryption == EncryptionMode.AES)
                 {
-                    case EncryptionMode.AES:
-                        Security.EncryptDataAes(client, buffer);
-                        break;
+                    Console.WriteLine("Encrypting data.");
+                    buffer = Security.EncryptDataAes(client, buffer);
                 }
                 await client.Client.SendAsync(buffer);
             }
@@ -45,13 +44,9 @@ namespace ServerMessenger
             {
                 DisplayError.SocketException(ex, "Client", "SendPayloadAsync()");
             }
-            catch (ObjectDisposedException ex)
+            catch (ArgumentNullException ex)
             {
-                DisplayError.ObjectDisposedException(ex, "Client", "SendPayloadAsync()");
-            }
-            catch (ArgumentNullException)
-            {
-                Console.WriteLine($"Error(Client.SendPayloadAsync(): Payload was null)");
+                DisplayError.DisplayBasicErrorInfos(ex, "Server", "SendPayloadAsync()");
             }
             catch (Exception ex)
             {
