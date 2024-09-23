@@ -10,17 +10,18 @@ namespace ServerMessenger
     /// </summary>
     internal static class HandleClientMessages
     {
-        private static string _emailAppPaswword = "";
+        private static string _emailAppPaswword = string.Empty;
 
         public static void Initialize()
         {
             if (File.Exists(@"C:\Users\Crist\Desktop\gmailAppPassword.txt"))
             {
-                Console.WriteLine("File exists");
+                _ = DisplayError.Log("File exists");
                 using (var streamReader = new StreamReader(@"C:\Users\Crist\Desktop\gmailAppPassword.txt"))
                 {
-                    _emailAppPaswword = new StreamReader(@"C:\Users\Crist\Desktop\gmailAppPassword.txt").ReadToEnd();
+                    _emailAppPaswword = streamReader.ReadToEnd();
                 }
+
                 if (string.IsNullOrEmpty(_emailAppPaswword))
                 {
                     Server.StopServer("Error(HandleClientMessages.Initialize()): The data in the file is corrupted!");
@@ -32,6 +33,21 @@ namespace ServerMessenger
             }
         }
 
+        private static void SendEmail(User user, long verificationCode)
+        {
+            string fromAddress = "ccardoso7002@gmail.com";
+            string toAddress = $"{user.Email}";
+            string subject = "Verification Email";
+            string body = $"Hello {user.FirstName} {user.LastName} this is your verification code: {verificationCode}";
+
+            var mail = new MailMessage(fromAddress, toAddress, subject, body);
+
+            SmtpClient smtpClient = new SmtpClient("smtp.gmail.com", 587);
+            smtpClient.Credentials = new NetworkCredential(fromAddress, _emailAppPaswword);
+            smtpClient.EnableSsl = true;
+            smtpClient.Send(mail);
+        }
+
         /// <summary>
         /// Gets called when receiving a code 2 message from the client.
         /// It checks the send email and username in the database and reacts accordingly.
@@ -40,7 +56,7 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                Console.WriteLine("Client disconnected!");
+                _ = DisplayError.Log("Client disconnected!");
                 return;
             }
             var user = new User()
@@ -58,7 +74,15 @@ namespace ServerMessenger
                 _ => ""
             };
 
-            Console.WriteLine(errorMessage);
+            if (result == UserCheckResult.None)
+            {
+                lock (Server._lockAwaitingMessagesDict)
+                {
+                    Server._clientsAwaitingMessages.Add(user.Username, new SaveAwaitingMessages());
+                }
+            }
+
+            _ = DisplayError.Log(errorMessage);
             var payload = new
             {
                 code = 4,
@@ -76,7 +100,7 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                Console.WriteLine("Client disconnected!");
+                _ = DisplayError.Log("Client disconnected!");
                 return;
             }
             var user = new User()
@@ -98,7 +122,7 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                Console.WriteLine("Client disconnected!");
+                _ = DisplayError.Log("Client disconnected!");
                 return;
             }
             var user = new User()
@@ -116,10 +140,21 @@ namespace ServerMessenger
             var payload = new
             {
                 code = 7,
-                result
+                result,
+                user.Username,
+                user.Email,
+                user.Password,
             };
             var jsonString = JsonSerializer.Serialize(payload);
             _ = Server.SendPayloadAsync(client, jsonString);
+            lock (Server._lockClientsDict)
+            {
+                Server._clients.Add(user.Username, client);
+            }
+            lock (Server._lockAwaitingMessagesDict)
+            {
+                Server._clientsAwaitingMessages.Add(user.Username, new SaveAwaitingMessages());
+            }
         }
 
         /// <summary>
@@ -133,24 +168,43 @@ namespace ServerMessenger
             {
                 if (!client.Connected)
                 {
-                    Console.WriteLine("Client disconnected!");
+                    _ = DisplayError.Log("Client disconnected!");
                     return;
                 }
-                Console.WriteLine("Handling login");
+                _ = DisplayError.Log("Handling login");
                 var email = root.GetProperty("email").GetString();
                 var password = root.GetProperty("password").GetString();
 
-                var result = await AccountInfoDatabase.CheckLoginDataAsync(email!, password!);
+                var resultLogin = await AccountInfoDatabase.CheckLoginDataAsync(email!, password!);
+                var result = resultLogin.isSuccess;
+                var username = resultLogin.username;
+                var id = resultLogin.id;
+
                 var payload = new
                 {
                     code = 9,
                     result,
                     email,
-                    password
+                    password,
+                    username,
+                    id,
                 };
                 var jsonString = JsonSerializer.Serialize(payload);
                 _ = Server.SendPayloadAsync(client, jsonString);
-                Console.WriteLine("Sent a response to the client wheter he can login or not.");
+                _ = DisplayError.Log("Sent a response to the client wheter he can login or not.");
+                _ = DisplayError.Log("Put user into the online dict");
+                if (id is not null)
+                {
+                    _ = SendUserFriendships(client, id.Value);
+                }
+                if (!string.IsNullOrEmpty(username))
+                {
+                    lock (Server._lockClientsDict)
+                    {
+                        Server._clients.Add(username, client);
+                    }
+                    _ = Task.Run(() => { Server.CheckingForWaitingMessages(client, username); });
+                }
             }
             catch (Exception ex)
             {
@@ -158,19 +212,90 @@ namespace ServerMessenger
             }
         }
 
-        private static void SendEmail(User user, long verificationCode)
+        private static async Task SendUserFriendships(TcpClient client, int id)
         {
-            string fromAddress = "ccardoso7002@gmail.com";
-            string toAddress = $"{user.Email}";
-            string subject = "Verification Email";
-            string body = $"Hello {user.FirstName} {user.LastName} this is your verification code: {verificationCode}";
+            try
+            {
+                var listIds = await AccountInfoDatabase.GetFriendshipsAsync(id);
 
-            var mail = new MailMessage(fromAddress, toAddress, subject, body);
+                var listUsernames = new List<Friend>();
+                foreach (var (friendId, status) in listIds)
+                {
+                    Console.WriteLine(id);
+                    Console.WriteLine(friendId);
+                    var username = await AccountInfoDatabase.GetUsernameByIdAsync(friendId);
+                    listUsernames.Add(new Friend { FriendId = friendId, Status = status, Username = username! });
+                }
 
-            SmtpClient smtpClient = new SmtpClient("smtp.gmail.com", 587);
-            smtpClient.Credentials = new NetworkCredential(fromAddress, _emailAppPaswword);
-            smtpClient.EnableSsl = true;
-            smtpClient.Send(mail);
+                var payload = new
+                {
+                    code = 13,
+                    friends = listUsernames
+                };
+                var jsonString = JsonSerializer.Serialize(payload);
+                _ = Server.SendPayloadAsync(client, jsonString);
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "SendUserFriendship");
+            }
+        }
+
+        public static async Task HandleFriendRequest(TcpClient client, JsonElement root)
+        {
+            try
+            {
+                if (!client.Connected)
+                {
+                    _ = DisplayError.Log("Client disconnected!");
+                    return;
+                }
+
+                var usernameSender = root.GetProperty("usernameSender").GetString();
+                var usernameReceiver = root.GetProperty("usernameReceiver").GetString();
+                var senderId = root.GetProperty("senderId").GetInt32();
+                var result = await AccountInfoDatabase.CheckIfUserExists(usernameReceiver!);
+
+                var payload = new
+                {
+                    code = 11,
+                    result,
+                };
+                var jsonString = JsonSerializer.Serialize(payload);
+                _ = Server.SendPayloadAsync(client, jsonString);
+
+                if (result == true)
+                {
+                    //Sending friend request
+                    var payloadSendingRequest = new
+                    {
+                        code = 12,
+                        usernameSender,
+                        senderId,
+                    };
+                    var jsonStringSendingRequest = JsonSerializer.Serialize(payloadSendingRequest);
+
+                    TcpClient? receivingClient;
+                    bool online;
+                    lock (Server._lockClientsDict)
+                    {
+                        online = Server._clients.TryGetValue(usernameReceiver!, out receivingClient);
+                    }
+
+                    var friendId = await AccountInfoDatabase.GetUserIdByUsernameAsync(usernameReceiver!);
+                    _ = AccountInfoDatabase.PutFriendRequestIntoDbAsync(senderId, friendId.Value);
+
+                    if (online)
+                    {
+                        _ = DisplayError.Log("Client is online");
+                        _ = Server.SendPayloadAsync(receivingClient!, jsonStringSendingRequest);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "HandleFriendRequest");
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 
 namespace ServerMessenger
 {
@@ -9,44 +11,78 @@ namespace ServerMessenger
     /// </summary>
     internal static class Server
     {
-        #pragma warning disable CS8618  
+        public static Dictionary<string, TcpClient> _clients { get; private set; } = new();
+        public static Dictionary<string, SaveAwaitingMessages> _clientsAwaitingMessages { get; private set; } = new();
+        public static readonly object _lockClientsDict = new();
+        public static readonly object _lockAwaitingMessagesDict = new();
 
         public static void StartServer()
         {
-            Console.WriteLine("Starting Server");
+            DisplayError.Initialize();
+            _ = DisplayError.Log("Starting Server");
             HandleClientMessages.Initialize();
             Security.Initialize();
             AccountInfoDatabase.Initialize();
             Task.Run(() => AcceptClients());
+            ////////////////////////////////////////////////////////////
+            _clientsAwaitingMessages.Add("Cristiano", new SaveAwaitingMessages());
+            _clientsAwaitingMessages.Add("Cristiano2", new SaveAwaitingMessages());
         }
 
         public static void StopServer(string reason)
         {
-            Console.WriteLine("Stopping the Server");
+            _ = DisplayError.Log("Stopping the Server");
             throw new Exception(reason);
+        }
+
+        public static void CheckingForWaitingMessages(TcpClient client, string username)
+        {
+            _ = DisplayError.Log("Checking for awaiting messages");
+            Queue<JsonElement> awaitingMessages;
+            lock (_lockAwaitingMessagesDict)
+            {
+                awaitingMessages = _clientsAwaitingMessages[username].AwaitingMessages;
+            }
+            if (awaitingMessages != null)
+            {
+                foreach (var message in awaitingMessages)
+                {
+                    var code = message.GetProperty("code").GetByte();
+                    _ = DisplayError.Log($"Code {code} is awaiting");
+                    switch (code)
+                    {
+                        
+                    }
+                }
+                awaitingMessages.Clear();
+            }
+            else
+            {
+                _ = DisplayError.Log("The client had no awaiting messages!");
+            }
         }
 
         public static async Task SendPayloadAsync(TcpClient client, string payload, EncryptionMode encryption = EncryptionMode.AES)
         {
             try
             {
-                Console.WriteLine(payload);
-                Console.WriteLine($"Trying to send {encryption} encrypted data");
+                _ = DisplayError.Log(payload);
+                _ = DisplayError.Log($"Trying to send {encryption} encrypted data");
                 var buffer = payload != null ? Encoding.UTF8.GetBytes(payload) : throw new ArgumentNullException(nameof(payload));
                 if (encryption == EncryptionMode.AES)
                 {
-                    Console.WriteLine("Encrypting data.");
+                    _ = DisplayError.Log("Encrypting data.");
                     buffer = Security.EncryptDataAes(client, buffer);
                 }
                 await client.Client.SendAsync(buffer);
             }
             catch (SocketException ex)
             {
-                DisplayError.SocketException(ex, "Client", "SendPayloadAsync()");
+                DisplayError.SocketException(ex, "Server", "SendPayloadAsync()");
             }
             catch (ArgumentNullException ex)
             {
-                DisplayError.DisplayBasicErrorInfos(ex, "Server", "SendPayloadAsync()");
+                DisplayError.ArgumentNullException(ex, "Server", "SendPayloadAsync()");
             }
             catch (Exception ex)
             {
@@ -64,7 +100,7 @@ namespace ServerMessenger
                 {
                     if (listener.Pending())
                     {
-                        Console.WriteLine("Accepting a client");
+                        _ = DisplayError.Log("Accepting a client");
                         var client = listener.AcceptTcpClient();
                         _ = Task.Run(() => { _ = HandleClientAsync(client); });
                     }
@@ -73,17 +109,18 @@ namespace ServerMessenger
             catch (SocketException ex)
             {
                 DisplayError.SocketException(ex, "Server", "AcceptClients()");
-            }  
+            }
             catch (Exception ex)
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "Server", "AcceptClients()");
             }
         }
-        
+
         private static async Task HandleClientAsync(TcpClient client)
         {
             Security.SendClientRSAkey(client);
             var buffer = new byte[8092];
+            var username = string.Empty;
             while (client.Connected)
             {
                 try
@@ -91,9 +128,9 @@ namespace ServerMessenger
                     int bytesRead = await client.Client.ReceiveAsync(buffer);
                     var tempBuffer = new byte[bytesRead];
                     Array.Copy(buffer, tempBuffer, bytesRead);
-                    var root = Security.DecryptMessage(client, tempBuffer) ?? throw new Exception("Root was null");
+                    var root = Security.DecryptMessage(client, tempBuffer) ?? throw new ArgumentNullException(nameof(tempBuffer));
                     var code = root.GetProperty("code").GetByte();
-                    Console.WriteLine($"Received code {code}");
+                    _ = DisplayError.Log($"Received code {code}");
                     switch (code)
                     {
                         case 1: //Receiving Aes key
@@ -111,22 +148,45 @@ namespace ServerMessenger
                         case 8: //Request to login
                             _ = HandleClientMessages.HandleLogin(client, root);
                             break;
+                        case 10: //Request to add a friend (USER THAT NEEDS TO GET THE REQUEST COULD BE OFFLINE)
+                            _ = HandleClientMessages.HandleFriendRequest(client, root);
+                            break;
+                        case 14: //Accept or decline request
+                            var userId = root.GetProperty("userId").GetInt32();
+                            var friendId = root.GetProperty("friendId").GetInt32();
+                            var taskByte = root.GetProperty("task").GetByte();
+                            Console.WriteLine((RelationshipStateEnum)taskByte);
+                            _ = AccountInfoDatabase.UpdateRelationshipState(userId, friendId, (RelationshipStateEnum)taskByte);
+                            break;
                     }
                 }
-                catch (NotImplementedException ex)
+                catch (ArgumentNullException ex)
                 {
-                    Console.WriteLine($"Error(ListenForMessages(): {ex.Message})");
-                    return;
+                    DisplayError.ArgumentNullException(ex, "Server", "SendPayloadAsync()");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error(ListenForMessages(): {ex.Message})");
+                    _ = DisplayError.Log($"Error(ListenForMessages(): {ex.Message})");
+                }
+            }
+            ClosingConnectionToClient(client, username);
+            _ = DisplayError.Log("Lost connection to the Client");
+        }
+
+        private static void ClosingConnectionToClient(TcpClient client, string username)
+        {
+            client.Close();
+            if (username != string.Empty)
+            {
+                _ = DisplayError.Log($"Removing {username} from the online dict");
+                lock (_lockClientsDict)
+                {
+                    _clients.Remove(username);
                 }
             }
             Security.RemoveAes(client);
-            Console.WriteLine("Lost connection to the Client");
         }
-        
+
         private static IPAddress GetIPAddress()
         {
             var host = Dns.GetHostEntry(Dns.GetHostName());
@@ -134,7 +194,7 @@ namespace ServerMessenger
             {
                 if (ip.AddressFamily == AddressFamily.InterNetwork)
                 {
-                    Console.WriteLine("Server IP Address: " + ip);
+                    _ = DisplayError.Log("Server IP Address: " + ip);
                     return ip;
                 }
             }

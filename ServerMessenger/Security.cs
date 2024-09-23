@@ -12,7 +12,8 @@ namespace ServerMessenger
     {
         private static RSAParameters _publicServerRSAKey;
         private static RSAParameters _privateServerRSAKey;
-        private static readonly Dictionary<TcpClient, Aes> _clientAes = new();
+        public static readonly Dictionary<TcpClient, Aes> _clientAes = new();
+        public static readonly object _lock = new ();
 
         public static void Initialize()
         {
@@ -25,20 +26,26 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                Console.WriteLine("Client disconnected!");
+                _ = DisplayError.Log("Client disconnected!");
                 return;
             }
             var aes = Aes.Create();
             aes.Key = root.GetProperty("Key").GetBytesFromBase64();
             aes.IV = root.GetProperty("IV").GetBytesFromBase64();
-            _clientAes.Add(client, aes);
-            Console.WriteLine("Saved clients Aes key");
+            lock (_lock)
+            {
+                _clientAes.Add(client, aes);
+            }
+            _ = DisplayError.Log("Saved clients Aes key");
         }
 
         public static void RemoveAes(TcpClient client)
         {
-            Console.WriteLine("Removing the client from the dict");
-            _clientAes.Remove(client);
+            _ = DisplayError.Log("Removing the client from the dict");
+            lock (_lock)
+            {
+                _clientAes.Remove(client);
+            }
         }
         #endregion
 
@@ -48,10 +55,13 @@ namespace ServerMessenger
         {
             using (Aes aes = Aes.Create())
             {
-                var clientAes = _clientAes.GetValueOrDefault(client) ?? throw new KeyNotFoundException("The client is not in the dictionary");
-                aes.Key = clientAes.Key;
-                aes.IV = clientAes.IV;
-
+                lock (_lock)
+                {
+                    var clientAes = _clientAes.GetValueOrDefault(client) ?? throw new KeyNotFoundException("The client is not in the dictionary");
+                    aes.Key = clientAes.Key;
+                    aes.IV = clientAes.IV;
+                }
+                
                 ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
 
                 using (MemoryStream msEncrypt = new MemoryStream())
@@ -112,7 +122,7 @@ namespace ServerMessenger
                 exponent,
             };
             var jsonString = JsonSerializer.Serialize(payload);
-            Console.WriteLine("Sending RSA key to the client");
+            _ = DisplayError.Log("Sending RSA key to the client");
             _ = Server.SendPayloadAsync(client, jsonString, EncryptionMode.None);
         }
         #endregion
@@ -139,9 +149,9 @@ namespace ServerMessenger
                 {
                     if (decryptionMode > 0)
                     {
-                        Console.WriteLine($"Error(Security.DecryptMessage(): {ex.Message})");
+                        _ = DisplayError.Log($"Error(Security.DecryptMessage(): {ex.Message})");
                         decryptionMode--;
-                        Console.WriteLine($"Error(Security.DecryptMessage): Couldnt decrypt the data." +
+                        _ = DisplayError.Log($"Error(Security.DecryptMessage): Couldnt decrypt the data." +
                         $"Trying again with {decryptionMode} decryption");
                     }
                 }
@@ -168,7 +178,12 @@ namespace ServerMessenger
 
         private static string DecryptDataAES(TcpClient client, byte[] encryptedData)
         {
-            _clientAes.TryGetValue(client, out var clientAes);
+            Aes? clientAes;
+            lock (_lock)
+            {
+                _clientAes.TryGetValue(client, out clientAes);
+            }
+            
             if (clientAes is null)
             {
                 throw new CryptographicException("Aes isnt in the dict yet");

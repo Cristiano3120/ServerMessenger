@@ -30,7 +30,7 @@ namespace ServerMessenger
                     Server.StopServer("Error(AccountInfoDatabse.Initialize()): Atleast one of the files didn´t exist.");
                 }
 
-                Console.WriteLine("Files exist.");
+                _ = DisplayError.Log("Files exist.");
                 using (var streamReader = new StreamReader(@"C:\Users\Crist\Desktop\AESData.txt"))
                 {
                     _password = streamReader.ReadLine()!;
@@ -73,7 +73,7 @@ namespace ServerMessenger
             try
             {
                 using var reader = new StreamReader(_pathForDatabaseInfos);
-                Console.WriteLine("Reading the connection string");
+                _ = DisplayError.Log("Reading the connection string");
                 _connectionString = reader.ReadLine();
             }
             catch (Exception ex)
@@ -82,39 +82,227 @@ namespace ServerMessenger
             }
         }
 
-        public static async Task<bool?> CheckLoginDataAsync(string email, string password)
+        public static async Task UpdateRelationshipState(int userId, int friendId, RelationshipStateEnum state)
         {
             try
             {
-                var command = "SELECT Password FROM \"Users\" WHERE Email = @e";
+                var acceptedCommand = "UPDATE friendships SET status = 'Accepted' WHERE userid = @f AND friendid = @u";
+                var declineCommand = "DELETE FROM friendships WHERE userid = @f AND friendid = @u";
+                var blockedCommand = "UPDATE friendships SET status = 'Blocked' WHERE (userid = @u AND friendid = @f) OR (userid = @f AND friendid = @u)";
+                var unblockORdeleteCommand = "DELETE FROM friendships WHERE (userid = @u AND friendid = @f) OR (userid = @f AND friendid = @u)";
+
                 using (var conn = new NpgsqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
-                    var encryptedData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(email), _key, _IV);
-                    var encryptedEmail = Convert.ToBase64String(encryptedData);
-                    encryptedData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(password), _key, _IV);
-                    var encryptedPassword = Convert.ToBase64String(encryptedData);
+
+                    using (var cmd = new NpgsqlCommand())
+                    {
+                        cmd.Connection = conn;
+                        cmd.Parameters.AddWithValue("@u", userId);
+                        cmd.Parameters.AddWithValue("@f", friendId);
+                        Console.WriteLine("Updating a friend relation");
+                        switch (state)
+                        {
+                            case RelationshipStateEnum.Accepted:
+                                Console.WriteLine("Changing the state from pending to accepted");
+                                cmd.CommandText = acceptedCommand;
+                                break;
+                            case RelationshipStateEnum.Blocked:
+                                Console.WriteLine("Blocking a user");
+                                cmd.CommandText = blockedCommand;
+                                break;
+                            case RelationshipStateEnum.Decline:
+                                Console.WriteLine("Declining a friend request");
+                                cmd.CommandText = declineCommand;
+                                break;
+                            case RelationshipStateEnum.Unblocked:
+                                Console.WriteLine("Unblocking a user");
+                                cmd.CommandText = unblockORdeleteCommand;
+                                break;
+                            case RelationshipStateEnum.Delete:
+                                Console.WriteLine("Deleting a user as a friend");
+                                cmd.CommandText = unblockORdeleteCommand;
+                                break;
+                        }
+                        _ = cmd.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "UpdateRelationshipState");
+            }
+        }
+
+        public static async Task<List<(int friendId, string status)>> GetFriendshipsAsync(int userId)
+        {
+            var friendships = new List<(int friendId, string status)>();
+
+            try
+            {
+                Console.WriteLine("Trying to get all pending friend requests and friends of the user");
+
+                var command = @"SELECT CASE WHEN userid = @userId THEN friendid ELSE userid END AS friendid, 
+                status FROM friendships WHERE (userid = @userId OR friendid = @userId) AND (status != 'Pending' 
+                OR (status = 'Pending' AND friendid = @userId) OR  status = 'Blocked')";
+
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new NpgsqlCommand(command, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", userId);
+                        var reader = await cmd.ExecuteReaderAsync();
+
+                        while (await reader.ReadAsync())
+                        {
+                            var friendId = reader.GetInt32(0);
+                            var status = reader.GetString(1);
+
+                            friendships.Add((friendId, status));
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "GetFriendshipsAsync");
+            }
+            return friendships;
+        }
+
+        public static async Task PutFriendRequestIntoDbAsync(int userId, int friendId)
+        {
+            try
+            {
+                Console.WriteLine("Trying to put the fa into the database");
+                var insertCommand = @" INSERT INTO friendships (userid, friendid, status) VALUES (@u, @f, 'Pending') 
+                ON CONFLICT (userid, friendid) DO NOTHING;";
+
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new NpgsqlCommand(insertCommand, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@u", userId);
+                        cmd.Parameters.AddWithValue("@f", friendId);
+
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "PutFriendRequestIntoDbAsync");
+            }
+        }
+
+        public static async Task<string?> GetUsernameByIdAsync(int userId)
+        {
+            try
+            {
+                var command = "SELECT username FROM \"Users\" WHERE \"ID\"  = @userId";
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new NpgsqlCommand(command, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", userId);
+                        var result = await cmd.ExecuteScalarAsync();
+
+                        if (result != null)
+                        {
+                            var encryptedUsername = result.ToString();
+                            return Security.DecryptDataAES(Convert.FromBase64String(encryptedUsername!), _key, _IV);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabse", "GetUsernameByIdAsync");
+            }
+            return null;
+        }
+
+        public static async Task<int?> GetUserIdByUsernameAsync(string username)
+        {
+            try
+            {
+                var query = @"SELECT ""ID"" FROM ""Users"" WHERE username = @u LIMIT 1";
+
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        var encryptedUsernameAsBytes = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(username), _key, _IV);
+                        var encryptedUsername = Convert.ToBase64String(encryptedUsernameAsBytes);
+                        cmd.Parameters.AddWithValue("@u", encryptedUsername);
+                        var result = await cmd.ExecuteScalarAsync();
+
+                        if (result != null && int.TryParse(result.ToString(), out int userId))
+                        {
+                            return userId;
+                        }
+                        return null;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabse", "GetUserIdByUsernameAsync");
+                return null;
+            }
+        }
+
+        public static async Task<(bool? isSuccess, string? username, int? id)> CheckLoginDataAsync(string email, string password)
+        {
+            try
+            {
+                var command = "SELECT Password, Username, \"ID\" FROM \"Users\" WHERE Email = @e";
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    var encryptedEmailData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(email), _key, _IV);
+                    var encryptedEmail = Convert.ToBase64String(encryptedEmailData);
+                    var encryptedPasswordData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(password), _key, _IV);
+                    var encryptedPassword = Convert.ToBase64String(encryptedPasswordData);
+
                     using (var cmd = new NpgsqlCommand(command, conn))
                     {
                         cmd.Parameters.AddWithValue("@e", encryptedEmail);
                         var reader = await cmd.ExecuteReaderAsync();
+
                         if (reader.HasRows)
                         {
                             await reader.ReadAsync();
-                            Console.WriteLine(encryptedPassword);
-                            if (encryptedPassword == reader.GetString(0))
+
+                            var storedPassword = reader.GetString(0);
+                            var username = reader.GetString(1);
+                            var id = reader.GetInt32(2);
+
+                            if (encryptedPassword == storedPassword)
                             {
-                                return true;
+                                var encryptedData = Convert.FromBase64String(username);
+                                username = Security.DecryptDataAES(encryptedData, _key, _IV);
+                                return (true, username, id);
                             }
                         }
                     }
                 }
-                return false;
+
+                return (false, null, null);
             }
             catch (Exception ex)
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "CheckLoginData");
-                return null;
+                return (null, null, null);
             }
         }
 
@@ -131,7 +319,7 @@ namespace ServerMessenger
                 {
                     await conn.OpenAsync();
 
-                    Console.WriteLine("Connection to the database was sucessfull");
+                    _ = DisplayError.Log("Connection to the database was sucessfull");
                     string command = "INSERT INTO \"Users\" (email, username, password, firstName, lastName, day, month, year) VALUES (@e, @u, @p, @fN, @lN, @d, @m, @y)";
 
                     var dataToPutInDb = new List<string>
@@ -160,12 +348,12 @@ namespace ServerMessenger
 
                     for (int i = 0; i < dataToPutInDb.Count; i++)
                     {
-                        Console.WriteLine($"{test[i]}: {dataToPutInDb[i]}");
+                        _ = DisplayError.Log($"{test[i]}: {dataToPutInDb[i]}");
                         var dataAsBytes = Encoding.UTF8.GetBytes(dataToPutInDb[i]);
                         var encryptedData = Security.EncryptDataAESDatabase(dataAsBytes, _key, _IV);
                         dataToPutInDb[i] = Convert.ToBase64String(encryptedData);
-                        Console.WriteLine($"{test[i]}: {dataToPutInDb[i]}");
-                        Console.WriteLine("///////////////////");
+                        _ = DisplayError.Log($"{test[i]}: {dataToPutInDb[i]}");
+                        _ = DisplayError.Log("///////////////////");
                     }
 
                     using (var cmd = new NpgsqlCommand(command, conn))
@@ -181,7 +369,7 @@ namespace ServerMessenger
                         cmd.ExecuteNonQuery();
                     }
 
-                    Console.WriteLine("Put the user into the db");
+                    _ = DisplayError.Log("Put the user into the db");
                     return true;
                 }
                 catch (Exception ex)
@@ -201,7 +389,7 @@ namespace ServerMessenger
                 try
                 {
                     await conn.OpenAsync();
-                    Console.WriteLine("Checking if the Email/ Username is already in the Database");
+                    _ = DisplayError.Log("Checking if the Email/ Username is already in the Database");
                     //Encrypting email
                     var dataAsBytes = Encoding.UTF8.GetBytes(user.Email);
                     var encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _IV);
@@ -226,28 +414,28 @@ namespace ServerMessenger
                                 var emailDb = reader["email"]?.ToString();
                                 var usernameDb = reader["username"]?.ToString();
 
-                                Console.WriteLine($"Email from DB: {emailDb}");
-                                Console.WriteLine($"User Email: {user.Email}");
-                                Console.WriteLine($"Username from DB: {usernameDb}");
-                                Console.WriteLine($"User Username: {user.Username}");
+                                _ = DisplayError.Log($"Email from DB: {emailDb}");
+                                _ = DisplayError.Log($"User Email: {user.Email}");
+                                _ = DisplayError.Log($"Username from DB: {usernameDb}");
+                                _ = DisplayError.Log($"User Username: {user.Username}");
 
                                 if (emailDb == email && usernameDb == username)
                                 {
-                                    Console.WriteLine("Both the email and the username are already in the database");
+                                    _ = DisplayError.Log("Both the email and the username are already in the database");
                                     return UserCheckResult.BothExists;
                                 }
                                 else if (emailDb == email)
                                 {
-                                    Console.WriteLine("Only the email is already in the database");
+                                    _ = DisplayError.Log("Only the email is already in the database");
                                     return UserCheckResult.EmailExists;
                                 }
                                 else if (usernameDb == username)
                                 {
-                                    Console.WriteLine("Only the username is already in the database");
+                                    _ = DisplayError.Log("Only the username is already in the database");
                                     return UserCheckResult.UsernameExists;
                                 }
                             }
-                            Console.WriteLine("Neither were found in the Database");
+                            _ = DisplayError.Log("Neither were found in the Database");
                             return UserCheckResult.None;
                         }
                     }
@@ -257,6 +445,41 @@ namespace ServerMessenger
                     DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "CheckIfEmailOrUsernameExists");
                     return null;
                 }
+            }
+        }
+
+        public static async Task<bool?> CheckIfUserExists(string username)
+        {
+            try
+            {
+                var command = @"SELECT username FROM ""Users"" WHERE username = @u";
+
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+                    _ = DisplayError.Log("Checking if user exists");
+                    var usernameBytes = Encoding.UTF8.GetBytes(username);
+                    var encryptedBytes = Security.EncryptDataAESDatabase(usernameBytes, _key, _IV);
+                    var encryptedUsername = Convert.ToBase64String(encryptedBytes);
+                    using (var cmd = new NpgsqlCommand(command, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@u", encryptedUsername);
+
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                return true;
+                            }
+                            return false;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "CheckIfUserExists");
+                return null;
             }
         }
     }
