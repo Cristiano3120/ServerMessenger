@@ -1,8 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Net.WebSockets;
 using System.Text;
-using System.Text.Json;
 
 namespace ServerMessenger
 {
@@ -12,7 +10,6 @@ namespace ServerMessenger
     internal static class Server
     {
         public static Dictionary<string, TcpClient> _clients { get; private set; } = new();
-        public static Dictionary<string, SaveAwaitingMessages> _clientsAwaitingMessages { get; private set; } = new();
         public static readonly object _lockClientsDict = new();
         public static readonly object _lockAwaitingMessagesDict = new();
 
@@ -24,9 +21,6 @@ namespace ServerMessenger
             Security.Initialize();
             AccountInfoDatabase.Initialize();
             Task.Run(() => AcceptClients());
-            ////////////////////////////////////////////////////////////
-            _clientsAwaitingMessages.Add("Cristiano", new SaveAwaitingMessages());
-            _clientsAwaitingMessages.Add("Cristiano2", new SaveAwaitingMessages());
         }
 
         public static void StopServer(string reason)
@@ -35,38 +29,11 @@ namespace ServerMessenger
             throw new Exception(reason);
         }
 
-        public static void CheckingForWaitingMessages(TcpClient client, string username)
-        {
-            _ = DisplayError.Log("Checking for awaiting messages");
-            Queue<JsonElement> awaitingMessages;
-            lock (_lockAwaitingMessagesDict)
-            {
-                awaitingMessages = _clientsAwaitingMessages[username].AwaitingMessages;
-            }
-            if (awaitingMessages != null)
-            {
-                foreach (var message in awaitingMessages)
-                {
-                    var code = message.GetProperty("code").GetByte();
-                    _ = DisplayError.Log($"Code {code} is awaiting");
-                    switch (code)
-                    {
-                        
-                    }
-                }
-                awaitingMessages.Clear();
-            }
-            else
-            {
-                _ = DisplayError.Log("The client had no awaiting messages!");
-            }
-        }
-
         public static async Task SendPayloadAsync(TcpClient client, string payload, EncryptionMode encryption = EncryptionMode.AES)
         {
             try
             {
-                _ = DisplayError.Log(payload);
+                _ = DisplayError.Log($"Sending: {payload}");
                 _ = DisplayError.Log($"Trying to send {encryption} encrypted data");
                 var buffer = payload != null ? Encoding.UTF8.GetBytes(payload) : throw new ArgumentNullException(nameof(payload));
                 if (encryption == EncryptionMode.AES)
@@ -131,6 +98,7 @@ namespace ServerMessenger
                     var root = Security.DecryptMessage(client, tempBuffer) ?? throw new ArgumentNullException(nameof(tempBuffer));
                     var code = root.GetProperty("code").GetByte();
                     _ = DisplayError.Log($"Received code {code}");
+                    _ = DisplayError.Log($"Received: {root}");
                     switch (code)
                     {
                         case 1: //Receiving Aes key

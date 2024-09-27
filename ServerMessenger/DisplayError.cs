@@ -17,25 +17,25 @@ namespace ServerMessenger
 
         public static void DisplayBasicErrorInfos(Exception ex, string className, string methodName)
         {
-            Log($"Error({className}.{methodName}): {ex.Message}");
+            _ = Log($"Error({className}.{methodName}): {ex.Message}");
         }
 
         public static void ObjectDisposedException(ObjectDisposedException ex, string className, string methodName)
         {
             DisplayBasicErrorInfos(ex, className, methodName);
-            Log($"Error: The object {ex.ObjectName} was disposed");
+            _ = Log($"Error: The object {ex.ObjectName} was disposed");
         }
 
         public static void ArgumentNullException(ArgumentNullException ex, string className, string methodName)
         {
             DisplayBasicErrorInfos(ex, className, methodName);
-            Log($"Error(Var that was null): {ex.ParamName}");
+            _ = Log($"Error(Var that was null): {ex.ParamName}");
         }
 
         public static void SocketException(SocketException ex, string className, string methodName)
         {
             DisplayBasicErrorInfos(ex, className, methodName);
-            Log($"Error(ErrorCode, SocketErrorCode): {ex.ErrorCode}, {ex.SocketErrorCode}");
+            _ = Log($"Error(ErrorCode, SocketErrorCode): {ex.ErrorCode}, {ex.SocketErrorCode}");
         }
 
         public static async Task Log(string log)
@@ -56,7 +56,6 @@ namespace ServerMessenger
             {
                 _loggingList.Enqueue((log, $"[{DateTime.UtcNow.ToString("HH:mm:ss")}]"));
             }
-            
         }
     }
 }

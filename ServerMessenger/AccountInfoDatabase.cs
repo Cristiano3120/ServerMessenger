@@ -260,6 +260,53 @@ namespace ServerMessenger
             }
         }
 
+        public static async Task<string?> GetProfilPicAsync(int? userId, string? username)
+        {
+            try
+            {
+                string command;
+                if (userId != null)
+                {
+                    command = @"SELECT ""profilpicture"" FROM ""Users"" WHERE ""ID"" = @id";
+                }
+                else
+                {
+                    command = @"SELECT ""profilpicture"" FROM ""Users"" WHERE ""Username"" = @username";
+                }
+                using var conn = new NpgsqlConnection(_connectionString);
+                {
+                    await conn.OpenAsync();
+
+                    using var cmd = new NpgsqlCommand(command, conn);
+                    {
+                        if (userId != null)
+                        {
+                            cmd.Parameters.AddWithValue("id", userId);
+                        }
+                        else
+                        {
+                            cmd.Parameters.AddWithValue("username", username!);
+                        }
+                        var result = await cmd.ExecuteScalarAsync();
+
+                        if (result is byte[] imageBytes && imageBytes.Length > 0)
+                        {
+                            return Convert.ToBase64String(imageBytes);
+                        }
+                        else
+                        {
+                            return null;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "GetProfilPicAsync");
+                return null;
+            }
+        }
+
         public static async Task<(bool? isSuccess, string? username, int? id)> CheckLoginDataAsync(string email, string password)
         {
             try
@@ -320,7 +367,9 @@ namespace ServerMessenger
                     await conn.OpenAsync();
 
                     _ = DisplayError.Log("Connection to the database was sucessfull");
-                    string command = "INSERT INTO \"Users\" (email, username, password, firstName, lastName, day, month, year) VALUES (@e, @u, @p, @fN, @lN, @d, @m, @y)";
+                    string command = "INSERT INTO \"Users\" (email, username, password, firstName, lastName, day, month, year, profilpicture) VALUES (@e, @u, @p, @fN, @lN, @d, @m, @y, @pic)";
+
+                    var imageBytes = GetBytesFromImage(filepath: @"C:\Users\Crist\source\repos\ServerMessenger\ServerMessenger\defaultPic.png");
 
                     var dataToPutInDb = new List<string>
                     {
@@ -366,6 +415,7 @@ namespace ServerMessenger
                         cmd.Parameters.AddWithValue("d", dataToPutInDb[5]);
                         cmd.Parameters.AddWithValue("m", dataToPutInDb[6]);
                         cmd.Parameters.AddWithValue("y", dataToPutInDb[7]);
+                        cmd.Parameters.AddWithValue("pic", imageBytes);
                         cmd.ExecuteNonQuery();
                     }
 
@@ -481,6 +531,11 @@ namespace ServerMessenger
                 DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "CheckIfUserExists");
                 return null;
             }
+        }
+
+        private static byte[] GetBytesFromImage(string filepath)
+        {
+            return File.ReadAllBytes(filepath);
         }
     }
 }

@@ -74,14 +74,6 @@ namespace ServerMessenger
                 _ => ""
             };
 
-            if (result == UserCheckResult.None)
-            {
-                lock (Server._lockAwaitingMessagesDict)
-                {
-                    Server._clientsAwaitingMessages.Add(user.Username, new SaveAwaitingMessages());
-                }
-            }
-
             _ = DisplayError.Log(errorMessage);
             var payload = new
             {
@@ -136,6 +128,7 @@ namespace ServerMessenger
                 Month = root.GetProperty("Month").GetInt32()!,
                 Year = root.GetProperty("Year").GetInt32()!,
             };
+            var profilPic = Convert.ToBase64String(File.ReadAllBytes(@"C:\Users\Crist\source\repos\ServerMessenger\ServerMessenger\defaultPic.png"));
             var result = await AccountInfoDatabase.PutAccountIntoTheDb(user);
             var payload = new
             {
@@ -144,16 +137,13 @@ namespace ServerMessenger
                 user.Username,
                 user.Email,
                 user.Password,
+                profilPic,
             };
             var jsonString = JsonSerializer.Serialize(payload);
             _ = Server.SendPayloadAsync(client, jsonString);
             lock (Server._lockClientsDict)
             {
                 Server._clients.Add(user.Username, client);
-            }
-            lock (Server._lockAwaitingMessagesDict)
-            {
-                Server._clientsAwaitingMessages.Add(user.Username, new SaveAwaitingMessages());
             }
         }
 
@@ -179,6 +169,14 @@ namespace ServerMessenger
                 var result = resultLogin.isSuccess;
                 var username = resultLogin.username;
                 var id = resultLogin.id;
+                string? profilPic = "";
+                if (id.HasValue && result.HasValue)
+                {
+                    if (result.Value)
+                    {
+                        profilPic = await AccountInfoDatabase.GetProfilPicAsync(id.Value, null);
+                    }
+                }
 
                 var payload = new
                 {
@@ -188,6 +186,7 @@ namespace ServerMessenger
                     password,
                     username,
                     id,
+                    profilPic,
                 };
                 var jsonString = JsonSerializer.Serialize(payload);
                 _ = Server.SendPayloadAsync(client, jsonString);
@@ -203,7 +202,6 @@ namespace ServerMessenger
                     {
                         Server._clients.Add(username, client);
                     }
-                    _ = Task.Run(() => { Server.CheckingForWaitingMessages(client, username); });
                 }
             }
             catch (Exception ex)
@@ -224,7 +222,8 @@ namespace ServerMessenger
                     Console.WriteLine(id);
                     Console.WriteLine(friendId);
                     var username = await AccountInfoDatabase.GetUsernameByIdAsync(friendId);
-                    listUsernames.Add(new Friend { FriendId = friendId, Status = status, Username = username! });
+                    var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId: friendId, username: null);
+                    listUsernames.Add(new Friend { FriendId = friendId, Status = status, Username = username!, ProfilPic = profilPic! });
                 }
 
                 var payload = new
@@ -264,6 +263,7 @@ namespace ServerMessenger
                 var jsonString = JsonSerializer.Serialize(payload);
                 _ = Server.SendPayloadAsync(client, jsonString);
 
+                var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId: null, username: usernameSender);
                 if (result == true)
                 {
                     //Sending friend request
@@ -272,6 +272,7 @@ namespace ServerMessenger
                         code = 12,
                         usernameSender,
                         senderId,
+                        profilPic,
                     };
                     var jsonStringSendingRequest = JsonSerializer.Serialize(payloadSendingRequest);
 
