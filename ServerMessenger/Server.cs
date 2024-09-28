@@ -9,6 +9,7 @@ namespace ServerMessenger
     /// </summary>
     internal static class Server
     {
+        public static Dictionary<int, List<string>> pendingImageParts = new();
         public static Dictionary<string, TcpClient> _clients { get; private set; } = new();
         public static readonly object _lockClientsDict = new();
         public static readonly object _lockAwaitingMessagesDict = new();
@@ -125,6 +126,23 @@ namespace ServerMessenger
                             var taskByte = root.GetProperty("task").GetByte();
                             Console.WriteLine((RelationshipStateEnum)taskByte);
                             _ = AccountInfoDatabase.UpdateRelationshipState(userId, friendId, (RelationshipStateEnum)taskByte);
+                            break;
+                        case 15: //Reiceiving profil pic
+                            var id = root.GetProperty("id").GetInt32();
+                            var partNumber = root.GetProperty("partNumber").GetInt32();
+                            var imagePart = root.GetProperty("imagePart").GetString();
+                            if (!pendingImageParts.ContainsKey(id))
+                            {
+                                pendingImageParts[id] = new List<string>(new string[4]);
+                            }
+                            pendingImageParts[id][partNumber - 1] = imagePart!;
+                            if (pendingImageParts[id].All(part => !string.IsNullOrEmpty(part)))
+                            {
+                                var fullBase64Image = string.Join("", pendingImageParts[id]);
+                                var imageBytes = Convert.FromBase64String(fullBase64Image);
+                                _ = AccountInfoDatabase.ChangeProfilPic(id, imageBytes);
+                                pendingImageParts.Remove(id);
+                            }
                             break;
                     }
                 }

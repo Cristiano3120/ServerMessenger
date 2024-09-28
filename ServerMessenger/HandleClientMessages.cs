@@ -2,6 +2,8 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace ServerMessenger
 {
@@ -162,6 +164,7 @@ namespace ServerMessenger
                     return;
                 }
                 _ = DisplayError.Log("Handling login");
+
                 var email = root.GetProperty("email").GetString();
                 var password = root.GetProperty("password").GetString();
 
@@ -169,33 +172,45 @@ namespace ServerMessenger
                 var result = resultLogin.isSuccess;
                 var username = resultLogin.username;
                 var id = resultLogin.id;
-                string? profilPic = "";
-                if (id.HasValue && result.HasValue)
-                {
-                    if (result.Value)
-                    {
-                        profilPic = await AccountInfoDatabase.GetProfilPicAsync(id.Value, null);
-                    }
-                }
 
-                var payload = new
+                var loginPayload = new
                 {
                     code = 9,
                     result,
                     email,
                     password,
                     username,
-                    id,
-                    profilPic,
+                    id
                 };
-                var jsonString = JsonSerializer.Serialize(payload);
-                _ = Server.SendPayloadAsync(client, jsonString);
-                _ = DisplayError.Log("Sent a response to the client wheter he can login or not.");
-                _ = DisplayError.Log("Put user into the online dict");
+                var loginJsonString = JsonSerializer.Serialize(loginPayload);
+                _ = Server.SendPayloadAsync(client, loginJsonString);
+
+                if (id.HasValue && result.HasValue && result.Value)
+                {
+                    var profilPic = await AccountInfoDatabase.GetProfilPicAsync(id.Value, null);
+
+                    if (!string.IsNullOrEmpty(profilPic))
+                    {
+                        int partSize = profilPic.Length / 4;
+                        string part1 = profilPic.Substring(0, partSize);
+                        string part2 = profilPic.Substring(partSize, partSize);
+                        string part3 = profilPic.Substring(partSize * 2, partSize);
+                        string part4 = profilPic.Substring(partSize * 3);
+
+                        _ = SendProfilPicPart(client, part1, 1);
+                        _ = SendProfilPicPart(client, part2, 2);
+                        _ = SendProfilPicPart(client, part3, 3);
+                        _ = SendProfilPicPart(client, part4, 4);
+                    }
+                }
+
+                _ = DisplayError.Log("Sent login response and profile picture parts.");
+
                 if (id is not null)
                 {
                     _ = SendUserFriendships(client, id.Value);
                 }
+
                 if (!string.IsNullOrEmpty(username))
                 {
                     lock (Server._lockClientsDict)
@@ -210,20 +225,55 @@ namespace ServerMessenger
             }
         }
 
+        private static async Task SendProfilPicPart(TcpClient client, string part, int partNumber)
+        {
+            var picPartPayload = new
+            {
+                code = 16,
+                partNumber,
+                partData = part
+            };
+
+            var picJsonString = JsonSerializer.Serialize(picPartPayload);
+            await Server.SendPayloadAsync(client, picJsonString);
+        }
+
         private static async Task SendUserFriendships(TcpClient client, int id)
         {
             try
             {
                 var listIds = await AccountInfoDatabase.GetFriendshipsAsync(id);
-
                 var listUsernames = new List<Friend>();
+
                 foreach (var (friendId, status) in listIds)
                 {
                     Console.WriteLine(id);
                     Console.WriteLine(friendId);
                     var username = await AccountInfoDatabase.GetUsernameByIdAsync(friendId);
+
                     var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId: friendId, username: null);
-                    listUsernames.Add(new Friend { FriendId = friendId, Status = status, Username = username!, ProfilPic = profilPic! });
+
+                    string base64ProfilePic = null;
+                    if (!string.IsNullOrEmpty(profilPic))
+                    {
+                        using (var image = Image.Load(Convert.FromBase64String(profilPic)))
+                        {
+                            image.Mutate(x => x.Resize(50, 50));
+                            using (var memoryStream = new MemoryStream())
+                            {
+                                image.SaveAsPng(memoryStream);
+                                base64ProfilePic = Convert.ToBase64String(memoryStream.ToArray());
+                            }
+                        }
+                    }
+
+                    listUsernames.Add(new Friend
+                    {
+                        FriendId = friendId,
+                        Status = status,
+                        Username = username!,
+                        ProfilPic = base64ProfilePic
+                    });
                 }
 
                 var payload = new

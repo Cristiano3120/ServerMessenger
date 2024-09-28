@@ -10,7 +10,7 @@ namespace ServerMessenger
     /// </summary>
     internal static class AccountInfoDatabase
     {
-        #pragma warning disable CS8618
+#pragma warning disable CS8618
         private const string _pathForDatabaseInfos = @"C:\Users\Crist\Desktop\MessengerServerAccountDatabaseConnectionString.txt";
         private static string? _connectionString;
         private static string? _password;
@@ -530,6 +530,31 @@ namespace ServerMessenger
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "CheckIfUserExists");
                 return null;
+            }
+        }
+
+        public static async Task ChangeProfilPic(int id, byte[] image)
+        {
+            var command = @"UPDATE ""Users"" SET profilpicture = @image WHERE ""ID"" = @userId";
+            using var conn = new NpgsqlConnection(_connectionString);
+            {
+                try
+                {
+                    await conn.OpenAsync();
+
+                    using var cmd = new NpgsqlCommand(command, conn);
+                    {
+                        cmd.Parameters.AddWithValue("@image", image);
+                        cmd.Parameters.AddWithValue("@userId", id);
+
+                        await cmd.ExecuteNonQueryAsync();
+                        _ = DisplayError.Log("Updated profil picture");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DisplayError.DisplayBasicErrorInfos(ex, "ProfilePictureDatabase", "ChangeProfilPic");
+                }
             }
         }
 
