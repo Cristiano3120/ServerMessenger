@@ -6,9 +6,11 @@ namespace ServerMessenger
     {
         private static readonly string _loggingFilePath = @"C:\Users\Crist\Desktop\txts\ServerLogger.txt";
         private static readonly Queue<(string, string)> _loggingList = new();
+        private static readonly object _lock = new();
 
         public static void Initialize()
         {
+            Console.WriteLine("Initializing DisplayError");
             if (File.Exists(_loggingFilePath))
             {
                 File.WriteAllText(_loggingFilePath, "");
@@ -17,44 +19,59 @@ namespace ServerMessenger
 
         public static void DisplayBasicErrorInfos(Exception ex, string className, string methodName)
         {
-            _ = Log($"Error({className}.{methodName}): {ex.Message}");
+            _ = LogAsync($"Error({className}.{methodName}): {ex.Message}");
         }
 
         public static void ObjectDisposedException(ObjectDisposedException ex, string className, string methodName)
         {
             DisplayBasicErrorInfos(ex, className, methodName);
-            _ = Log($"Error: The object {ex.ObjectName} was disposed");
+            _ = LogAsync($"Error: The object {ex.ObjectName} was disposed");
         }
 
         public static void ArgumentNullException(ArgumentNullException ex, string className, string methodName)
         {
             DisplayBasicErrorInfos(ex, className, methodName);
-            _ = Log($"Error(Var that was null): {ex.ParamName}");
+            _ = LogAsync($"Error(Var that was null): {ex.ParamName}");
         }
 
         public static void SocketException(SocketException ex, string className, string methodName)
         {
             DisplayBasicErrorInfos(ex, className, methodName);
-            _ = Log($"Error(ErrorCode, SocketErrorCode): {ex.ErrorCode}, {ex.SocketErrorCode}");
+            _ = LogAsync($"Error(ErrorCode, SocketErrorCode): {ex.ErrorCode}, {ex.SocketErrorCode}");
         }
 
-        public static async Task Log(string log)
+        public static async Task LogAsync(string log)
         {
             try
             {
                 Console.WriteLine(log);
-                _loggingList.Enqueue((log, $"[{DateTime.UtcNow.ToString("HH:mm:ss")}]"));
-                foreach (var (content, timestamp) in _loggingList)
+                lock (_lock)
                 {
-                    using (var writer = new StreamWriter(_loggingFilePath, true))
+                    _loggingList.Enqueue((log, $"[{DateTime.UtcNow:HH:mm:ss}]"));
+                }
+
+                List<(string content, string timestamp)> logsToWrite;
+                lock (_lock)
+                {
+                    logsToWrite = _loggingList.ToList();
+                    _loggingList.Clear();
+                }
+
+                using var writer = new StreamWriter(_loggingFilePath, true);
+                {
+                    foreach (var (content, timestamp) in logsToWrite)
                     {
                         await writer.WriteLineAsync($"{timestamp} {content}");
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _loggingList.Enqueue((log, $"[{DateTime.UtcNow.ToString("HH:mm:ss")}]"));
+                Console.WriteLine(value: $"Error while logging: {ex.Message}");
+                lock (_lock)
+                {
+                    _loggingList.Enqueue((log, $"[{DateTime.UtcNow:HH:mm:ss}]"));
+                }
             }
         }
     }

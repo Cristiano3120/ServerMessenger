@@ -16,7 +16,7 @@ namespace ServerMessenger
         private static string? _password;
         private static byte[]? _salt;
         private static byte[] _key;
-        private static byte[] _IV;
+        private static byte[] _iv;
 
         /// <summary>
         /// Reads crutial vars for the Server from files
@@ -25,12 +25,13 @@ namespace ServerMessenger
         {
             try
             {
+                _ = DisplayError.LogAsync("Initializing AccountInfoDatabse");
                 if (!File.Exists(_pathForDatabaseInfos) || !File.Exists(@"C:\Users\Crist\Desktop\AESData.txt"))
                 {
                     Server.StopServer("Error(AccountInfoDatabse.Initialize()): Atleast one of the files didn´t exist.");
                 }
 
-                _ = DisplayError.Log("Files exist.");
+                _ = DisplayError.LogAsync("Files exist.");
                 using (var streamReader = new StreamReader(@"C:\Users\Crist\Desktop\AESData.txt"))
                 {
                     _password = streamReader.ReadLine()!;
@@ -43,7 +44,7 @@ namespace ServerMessenger
                 }
 
                 ReadEncryptionAndConnectionString();
-                DeriveKeyAndIV(_password!, _salt!, out _key, out _IV);
+                DeriveKeyAndIV(_password!, _salt!, out _key, out _iv);
             }
             catch (Exception ex)
             {
@@ -73,7 +74,7 @@ namespace ServerMessenger
             try
             {
                 using var reader = new StreamReader(_pathForDatabaseInfos);
-                _ = DisplayError.Log("Reading the connection string");
+                _ = DisplayError.LogAsync("Reading the connection string");
                 _connectionString = reader.ReadLine();
             }
             catch (Exception ex)
@@ -216,7 +217,7 @@ namespace ServerMessenger
                         if (result != null)
                         {
                             var encryptedUsername = result.ToString();
-                            return Security.DecryptDataAES(Convert.FromBase64String(encryptedUsername!), _key, _IV);
+                            return Security.DecryptDataAES(Convert.FromBase64String(encryptedUsername!), _key, _iv);
                         }
                     }
                 }
@@ -240,7 +241,7 @@ namespace ServerMessenger
 
                     using (var cmd = new NpgsqlCommand(query, conn))
                     {
-                        var encryptedUsernameAsBytes = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(username), _key, _IV);
+                        var encryptedUsernameAsBytes = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(username), _key, _iv);
                         var encryptedUsername = Convert.ToBase64String(encryptedUsernameAsBytes);
                         cmd.Parameters.AddWithValue("@u", encryptedUsername);
                         var result = await cmd.ExecuteScalarAsync();
@@ -316,9 +317,9 @@ namespace ServerMessenger
                 {
                     await conn.OpenAsync();
 
-                    var encryptedEmailData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(email), _key, _IV);
+                    var encryptedEmailData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(email), _key, _iv);
                     var encryptedEmail = Convert.ToBase64String(encryptedEmailData);
-                    var encryptedPasswordData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(password), _key, _IV);
+                    var encryptedPasswordData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(password), _key, _iv);
                     var encryptedPassword = Convert.ToBase64String(encryptedPasswordData);
 
                     using (var cmd = new NpgsqlCommand(command, conn))
@@ -337,7 +338,7 @@ namespace ServerMessenger
                             if (encryptedPassword == storedPassword)
                             {
                                 var encryptedData = Convert.FromBase64String(username);
-                                username = Security.DecryptDataAES(encryptedData, _key, _IV);
+                                username = Security.DecryptDataAES(encryptedData, _key, _iv);
                                 return (true, username, id);
                             }
                         }
@@ -366,7 +367,7 @@ namespace ServerMessenger
                 {
                     await conn.OpenAsync();
 
-                    _ = DisplayError.Log("Connection to the database was sucessfull");
+                    _ = DisplayError.LogAsync("Connection to the database was sucessfull");
                     string command = "INSERT INTO \"Users\" (email, username, password, firstName, lastName, day, month, year, profilpicture) VALUES (@e, @u, @p, @fN, @lN, @d, @m, @y, @pic)";
 
                     var imageBytes = GetBytesFromImage(filepath: @"C:\Users\Crist\source\repos\ServerMessenger\ServerMessenger\defaultPic.png");
@@ -397,12 +398,12 @@ namespace ServerMessenger
 
                     for (int i = 0; i < dataToPutInDb.Count; i++)
                     {
-                        _ = DisplayError.Log($"{test[i]}: {dataToPutInDb[i]}");
+                        _ = DisplayError.LogAsync($"{test[i]}: {dataToPutInDb[i]}");
                         var dataAsBytes = Encoding.UTF8.GetBytes(dataToPutInDb[i]);
-                        var encryptedData = Security.EncryptDataAESDatabase(dataAsBytes, _key, _IV);
+                        var encryptedData = Security.EncryptDataAESDatabase(dataAsBytes, _key, _iv);
                         dataToPutInDb[i] = Convert.ToBase64String(encryptedData);
-                        _ = DisplayError.Log($"{test[i]}: {dataToPutInDb[i]}");
-                        _ = DisplayError.Log("///////////////////");
+                        _ = DisplayError.LogAsync($"{test[i]}: {dataToPutInDb[i]}");
+                        _ = DisplayError.LogAsync("///////////////////");
                     }
 
                     using (var cmd = new NpgsqlCommand(command, conn))
@@ -419,7 +420,7 @@ namespace ServerMessenger
                         cmd.ExecuteNonQuery();
                     }
 
-                    _ = DisplayError.Log("Put the user into the db");
+                    _ = DisplayError.LogAsync("Put the user into the db");
                     return true;
                 }
                 catch (Exception ex)
@@ -439,14 +440,14 @@ namespace ServerMessenger
                 try
                 {
                     await conn.OpenAsync();
-                    _ = DisplayError.Log("Checking if the Email/ Username is already in the Database");
+                    _ = DisplayError.LogAsync("Checking if the Email/ Username is already in the Database");
                     //Encrypting email
                     var dataAsBytes = Encoding.UTF8.GetBytes(user.Email);
-                    var encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _IV);
+                    var encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _iv);
                     var email = Convert.ToBase64String(encrypted);
                     //Encrypting username
                     dataAsBytes = Encoding.UTF8.GetBytes(user.Username);
-                    encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _IV);
+                    encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _iv);
                     var username = Convert.ToBase64String(encrypted);
                     using (var cmd = new NpgsqlCommand(command, conn))
                     {
@@ -464,28 +465,28 @@ namespace ServerMessenger
                                 var emailDb = reader["email"]?.ToString();
                                 var usernameDb = reader["username"]?.ToString();
 
-                                _ = DisplayError.Log($"Email from DB: {emailDb}");
-                                _ = DisplayError.Log($"User Email: {user.Email}");
-                                _ = DisplayError.Log($"Username from DB: {usernameDb}");
-                                _ = DisplayError.Log($"User Username: {user.Username}");
+                                _ = DisplayError.LogAsync($"Email from DB: {emailDb}");
+                                _ = DisplayError.LogAsync($"User Email: {user.Email}");
+                                _ = DisplayError.LogAsync($"Username from DB: {usernameDb}");
+                                _ = DisplayError.LogAsync($"User Username: {user.Username}");
 
                                 if (emailDb == email && usernameDb == username)
                                 {
-                                    _ = DisplayError.Log("Both the email and the username are already in the database");
+                                    _ = DisplayError.LogAsync("Both the email and the username are already in the database");
                                     return UserCheckResult.BothExists;
                                 }
                                 else if (emailDb == email)
                                 {
-                                    _ = DisplayError.Log("Only the email is already in the database");
+                                    _ = DisplayError.LogAsync("Only the email is already in the database");
                                     return UserCheckResult.EmailExists;
                                 }
                                 else if (usernameDb == username)
                                 {
-                                    _ = DisplayError.Log("Only the username is already in the database");
+                                    _ = DisplayError.LogAsync("Only the username is already in the database");
                                     return UserCheckResult.UsernameExists;
                                 }
                             }
-                            _ = DisplayError.Log("Neither were found in the Database");
+                            _ = DisplayError.LogAsync("Neither were found in the Database");
                             return UserCheckResult.None;
                         }
                     }
@@ -507,9 +508,9 @@ namespace ServerMessenger
                 using (var conn = new NpgsqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
-                    _ = DisplayError.Log("Checking if user exists");
+                    _ = DisplayError.LogAsync("Checking if user exists");
                     var usernameBytes = Encoding.UTF8.GetBytes(username);
-                    var encryptedBytes = Security.EncryptDataAESDatabase(usernameBytes, _key, _IV);
+                    var encryptedBytes = Security.EncryptDataAESDatabase(usernameBytes, _key, _iv);
                     var encryptedUsername = Convert.ToBase64String(encryptedBytes);
                     using (var cmd = new NpgsqlCommand(command, conn))
                     {
@@ -548,7 +549,7 @@ namespace ServerMessenger
                         cmd.Parameters.AddWithValue("@userId", id);
 
                         await cmd.ExecuteNonQueryAsync();
-                        _ = DisplayError.Log("Updated profil picture");
+                        _ = DisplayError.LogAsync("Updated profil picture");
                     }
                 }
                 catch (Exception ex)

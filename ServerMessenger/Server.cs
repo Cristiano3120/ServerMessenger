@@ -9,15 +9,15 @@ namespace ServerMessenger
     /// </summary>
     internal static class Server
     {
-        public static Dictionary<int, List<string>> pendingImageParts = new();
-        public static Dictionary<string, TcpClient> _clients { get; private set; } = new();
+        private static readonly Dictionary<int, List<string>> _pendingImageParts = new();
+        public static Dictionary<string, TcpClient> Clients { get; private set; } = new();
         public static readonly object _lockClientsDict = new();
-        public static readonly object _lockAwaitingMessagesDict = new();
+        private static readonly object _lockPendingImageParts = new();
 
         public static void StartServer()
         {
             DisplayError.Initialize();
-            _ = DisplayError.Log("Starting Server");
+            _ = DisplayError.LogAsync("Starting Server");
             HandleClientMessages.Initialize();
             Security.Initialize();
             AccountInfoDatabase.Initialize();
@@ -26,7 +26,7 @@ namespace ServerMessenger
 
         public static void StopServer(string reason)
         {
-            _ = DisplayError.Log("Stopping the Server");
+            _ = DisplayError.LogAsync("Stopping the Server");
             throw new Exception(reason);
         }
 
@@ -34,12 +34,12 @@ namespace ServerMessenger
         {
             try
             {
-                _ = DisplayError.Log($"Sending: {payload}");
-                _ = DisplayError.Log($"Trying to send {encryption} encrypted data");
+                _ = DisplayError.LogAsync($"Sending: {payload}");
+                _ = DisplayError.LogAsync($"Trying to send {encryption} encrypted data");
                 var buffer = payload != null ? Encoding.UTF8.GetBytes(payload) : throw new ArgumentNullException(nameof(payload));
                 if (encryption == EncryptionMode.AES)
                 {
-                    _ = DisplayError.Log("Encrypting data.");
+                    _ = DisplayError.LogAsync("Encrypting data.");
                     buffer = Security.EncryptDataAes(client, buffer);
                 }
                 await client.Client.SendAsync(buffer);
@@ -68,7 +68,7 @@ namespace ServerMessenger
                 {
                     if (listener.Pending())
                     {
-                        _ = DisplayError.Log("Accepting a client");
+                        _ = DisplayError.LogAsync("Accepting a client");
                         var client = listener.AcceptTcpClient();
                         _ = Task.Run(() => { _ = HandleClientAsync(client); });
                     }
@@ -98,8 +98,8 @@ namespace ServerMessenger
                     Array.Copy(buffer, tempBuffer, bytesRead);
                     var root = Security.DecryptMessage(client, tempBuffer) ?? throw new ArgumentNullException(nameof(tempBuffer));
                     var code = root.GetProperty("code").GetByte();
-                    _ = DisplayError.Log($"Received code {code}");
-                    _ = DisplayError.Log($"Received: {root}");
+                    _ = DisplayError.LogAsync($"Received code {code}");
+                    _ = DisplayError.LogAsync($"Received: {root}");
                     switch (code)
                     {
                         case 1: //Receiving Aes key
@@ -131,17 +131,21 @@ namespace ServerMessenger
                             var id = root.GetProperty("id").GetInt32();
                             var partNumber = root.GetProperty("partNumber").GetInt32();
                             var imagePart = root.GetProperty("imagePart").GetString();
-                            if (!pendingImageParts.ContainsKey(id))
+                            lock (_lockPendingImageParts)
                             {
-                                pendingImageParts[id] = new List<string>(new string[4]);
-                            }
-                            pendingImageParts[id][partNumber - 1] = imagePart!;
-                            if (pendingImageParts[id].All(part => !string.IsNullOrEmpty(part)))
-                            {
-                                var fullBase64Image = string.Join("", pendingImageParts[id]);
-                                var imageBytes = Convert.FromBase64String(fullBase64Image);
-                                _ = AccountInfoDatabase.ChangeProfilPic(id, imageBytes);
-                                pendingImageParts.Remove(id);
+                                if (!_pendingImageParts.ContainsKey(id))
+                                {
+                                    _pendingImageParts[id] = new List<string>(new string[4]);
+                                }
+                                _pendingImageParts[id][partNumber - 1] = imagePart!;
+
+                                if (_pendingImageParts[id].All(part => !string.IsNullOrEmpty(part)))
+                                {
+                                    var fullBase64Image = string.Join("", _pendingImageParts[id]);
+                                    var imageBytes = Convert.FromBase64String(fullBase64Image);
+                                    _ = AccountInfoDatabase.ChangeProfilPic(id, imageBytes);
+                                    _pendingImageParts.Remove(id);
+                                }
                             }
                             break;
                     }
@@ -152,25 +156,25 @@ namespace ServerMessenger
                 }
                 catch (Exception ex)
                 {
-                    _ = DisplayError.Log($"Error(ListenForMessages(): {ex.Message})");
+                    _ = DisplayError.LogAsync($"Error(ListenForMessages(): {ex.Message})");
                 }
             }
             ClosingConnectionToClient(client, username);
-            _ = DisplayError.Log("Lost connection to the Client");
+            _ = DisplayError.LogAsync("Lost connection to the Client");
         }
 
         private static void ClosingConnectionToClient(TcpClient client, string username)
         {
-            client.Close();
             if (username != string.Empty)
             {
-                _ = DisplayError.Log($"Removing {username} from the online dict");
+                _ = DisplayError.LogAsync($"Removing {username} from the online dict");
                 lock (_lockClientsDict)
                 {
-                    _clients.Remove(username);
+                    Clients.Remove(username);
                 }
             }
             Security.RemoveAes(client);
+            client.Close();   
         }
 
         private static IPAddress GetIPAddress()
@@ -180,7 +184,7 @@ namespace ServerMessenger
             {
                 if (ip.AddressFamily == AddressFamily.InterNetwork)
                 {
-                    _ = DisplayError.Log("Server IP Address: " + ip);
+                    _ = DisplayError.LogAsync("Server IP Address: " + ip);
                     return ip;
                 }
             }

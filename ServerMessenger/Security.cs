@@ -17,6 +17,7 @@ namespace ServerMessenger
 
         public static void Initialize()
         {
+            _ = DisplayError.LogAsync("Initializing Security");
             GenerateRSAKeys();
         }
 
@@ -26,7 +27,7 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                _ = DisplayError.Log("Client disconnected!");
+                _ = DisplayError.LogAsync("Client disconnected!");
                 return;
             }
             var aes = Aes.Create();
@@ -36,12 +37,12 @@ namespace ServerMessenger
             {
                 _clientAes.Add(client, aes);
             }
-            _ = DisplayError.Log("Saved clients Aes key");
+            _ = DisplayError.LogAsync("Saved Clients Aes key");
         }
 
         public static void RemoveAes(TcpClient client)
         {
-            _ = DisplayError.Log("Removing the client from the dict");
+            _ = DisplayError.LogAsync("Removing the client from the dict");
             lock (_lock)
             {
                 _clientAes.Remove(client);
@@ -122,7 +123,7 @@ namespace ServerMessenger
                 exponent,
             };
             var jsonString = JsonSerializer.Serialize(payload);
-            _ = DisplayError.Log("Sending RSA key to the client");
+            _ = DisplayError.LogAsync("Sending RSA key to the client");
             _ = Server.SendPayloadAsync(client, jsonString, EncryptionMode.None);
         }
         #endregion
@@ -149,9 +150,9 @@ namespace ServerMessenger
                 {
                     if (decryptionMode > 0)
                     {
-                        _ = DisplayError.Log($"Error(Security.DecryptMessage(): {ex.Message})");
                         decryptionMode--;
-                        _ = DisplayError.Log($"Error(Security.DecryptMessage): Couldnt decrypt the data." +
+                        _ = DisplayError.LogAsync($"Error(Security.DecryptMessage(): {ex.Message})");
+                        _ = DisplayError.LogAsync($"Error(Security.DecryptMessage): Couldnt decrypt the data." +
                         $"Trying again with {decryptionMode} decryption");
                     }
                 }

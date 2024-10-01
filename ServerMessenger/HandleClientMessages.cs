@@ -16,9 +16,10 @@ namespace ServerMessenger
 
         public static void Initialize()
         {
+            _ = DisplayError.LogAsync("Initializing HandleClientMessages");
             if (File.Exists(@"C:\Users\Crist\Desktop\gmailAppPassword.txt"))
             {
-                _ = DisplayError.Log("File exists");
+                _ = DisplayError.LogAsync("File exists");
                 using (var streamReader = new StreamReader(@"C:\Users\Crist\Desktop\gmailAppPassword.txt"))
                 {
                     _emailAppPaswword = streamReader.ReadToEnd();
@@ -37,6 +38,7 @@ namespace ServerMessenger
 
         private static void SendEmail(User user, long verificationCode)
         {
+            _ = DisplayError.LogAsync("Sending an email");
             string fromAddress = "ccardoso7002@gmail.com";
             string toAddress = $"{user.Email}";
             string subject = "Verification Email";
@@ -58,14 +60,16 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                _ = DisplayError.Log("Client disconnected!");
+                _ = DisplayError.LogAsync("Client disconnected!");
                 return;
             }
+
             var user = new User()
             {
                 Email = root.GetProperty("Email").GetString()!,
                 Username = root.GetProperty("Username").GetString()!,
             };
+
             UserCheckResult? result = await AccountInfoDatabase.CheckIfEmailOrUsernameExists(user);
             var errorMessage = result switch
             {
@@ -76,7 +80,7 @@ namespace ServerMessenger
                 _ => ""
             };
 
-            _ = DisplayError.Log(errorMessage);
+            _ = DisplayError.LogAsync(errorMessage);
             var payload = new
             {
                 code = 4,
@@ -94,7 +98,7 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                _ = DisplayError.Log("Client disconnected!");
+                _ = DisplayError.LogAsync("Client disconnected!");
                 return;
             }
             var user = new User()
@@ -116,7 +120,7 @@ namespace ServerMessenger
         {
             if (!client.Connected)
             {
-                _ = DisplayError.Log("Client disconnected!");
+                _ = DisplayError.LogAsync("Client disconnected!");
                 return;
             }
             var user = new User()
@@ -145,7 +149,7 @@ namespace ServerMessenger
             _ = Server.SendPayloadAsync(client, jsonString);
             lock (Server._lockClientsDict)
             {
-                Server._clients.Add(user.Username, client);
+                Server.Clients.Add(user.Username, client);
             }
         }
 
@@ -160,10 +164,10 @@ namespace ServerMessenger
             {
                 if (!client.Connected)
                 {
-                    _ = DisplayError.Log("Client disconnected!");
+                    _ = DisplayError.LogAsync("Client disconnected!");
                     return;
                 }
-                _ = DisplayError.Log("Handling login");
+                _ = DisplayError.LogAsync("Handling login");
 
                 var email = root.GetProperty("email").GetString();
                 var password = root.GetProperty("password").GetString();
@@ -204,7 +208,7 @@ namespace ServerMessenger
                     }
                 }
 
-                _ = DisplayError.Log("Sent login response and profile picture parts.");
+                _ = DisplayError.LogAsync("Sent login response and profile picture parts.");
 
                 if (id is not null)
                 {
@@ -215,7 +219,7 @@ namespace ServerMessenger
                 {
                     lock (Server._lockClientsDict)
                     {
-                        Server._clients.Add(username, client);
+                        Server.Clients.Add(username, client);
                     }
                 }
             }
@@ -225,6 +229,9 @@ namespace ServerMessenger
             }
         }
 
+        /// <summary>
+        /// Gets called when receiving a code 8 message
+        /// </summary>
         private static async Task SendProfilPicPart(TcpClient client, string part, int partNumber)
         {
             var picPartPayload = new
@@ -296,7 +303,7 @@ namespace ServerMessenger
             {
                 if (!client.Connected)
                 {
-                    _ = DisplayError.Log("Client disconnected!");
+                    _ = DisplayError.LogAsync("Client disconnected!");
                     return;
                 }
 
@@ -330,7 +337,7 @@ namespace ServerMessenger
                     bool online;
                     lock (Server._lockClientsDict)
                     {
-                        online = Server._clients.TryGetValue(usernameReceiver!, out receivingClient);
+                        online = Server.Clients.TryGetValue(usernameReceiver!, out receivingClient);
                     }
 
                     var friendId = await AccountInfoDatabase.GetUserIdByUsernameAsync(usernameReceiver!);
@@ -338,7 +345,7 @@ namespace ServerMessenger
 
                     if (online)
                     {
-                        _ = DisplayError.Log("Client is online");
+                        _ = DisplayError.LogAsync("Client is online");
                         _ = Server.SendPayloadAsync(receivingClient!, jsonStringSendingRequest);
                     }
                 }
