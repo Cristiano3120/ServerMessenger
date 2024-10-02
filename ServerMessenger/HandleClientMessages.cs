@@ -230,21 +230,16 @@ namespace ServerMessenger
                     Console.WriteLine(id);
                     Console.WriteLine(friendId);
                     var username = await AccountInfoDatabase.GetUsernameByIdAsync(friendId);
-
                     var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId: friendId, username: null);
-
-                    string base64ProfilePic = null;
+                    string base64ProfilePic = "";
                     if (!string.IsNullOrEmpty(profilPic))
                     {
-                        using (var image = Image.Load(Convert.FromBase64String(profilPic)))
-                        {
-                            image.Mutate(x => x.Resize(100, 100));
-                            using (var memoryStream = new MemoryStream())
-                            {
-                                image.SaveAsPng(memoryStream);
-                                base64ProfilePic = Convert.ToBase64String(memoryStream.ToArray());
-                            }
-                        }
+                        using var image = Image.Load(Convert.FromBase64String(profilPic));
+                        using var memoryStream = new MemoryStream();
+
+                        image.Mutate(x => x.Resize(100, 100));  
+                        image.SaveAsPng(memoryStream);
+                        base64ProfilePic = Convert.ToBase64String(memoryStream.ToArray());
                     }
 
                     listUsernames.Add(new Friend

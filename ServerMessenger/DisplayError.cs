@@ -40,20 +40,20 @@ namespace ServerMessenger
             _ = LogAsync($"Error(ErrorCode, SocketErrorCode): {ex.ErrorCode}, {ex.SocketErrorCode}");
         }
 
-        public static async Task LogAsync(string log)
+        public static async Task LogAsync<T>(T log) where T : IConvertible
         {
             try
             {
                 Console.WriteLine(log);
                 lock (_lock)
                 {
-                    _loggingList.Enqueue((log, $"[{DateTime.UtcNow:HH:mm:ss}]"));
+                    _loggingList.Enqueue((log.ToString()!, $"[{DateTime.UtcNow:HH:mm:ss}]"));
                 }
 
                 List<(string content, string timestamp)> logsToWrite;
                 lock (_lock)
                 {
-                    logsToWrite = _loggingList.ToList();
+                    logsToWrite = [.. _loggingList];
                     _loggingList.Clear();
                 }
 
@@ -69,7 +69,7 @@ namespace ServerMessenger
             {
                 lock (_lock)
                 {
-                    _loggingList.Enqueue((log, $"[{DateTime.UtcNow:HH:mm:ss}]"));
+                    _loggingList.Enqueue((log.ToString()!, $"[{DateTime.UtcNow:HH:mm:ss}]"));
                 }
             }
         }

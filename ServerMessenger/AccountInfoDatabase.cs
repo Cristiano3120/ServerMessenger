@@ -1,4 +1,5 @@
 ﻿using Npgsql;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -135,9 +136,9 @@ namespace ServerMessenger
             }
         }
 
-        public static async Task<List<(int friendId, string status)>> GetFriendshipsAsync(int userId)
+        public static async Task<List<(int friendId, RelationshipStateEnum status)>> GetFriendshipsAsync(int userId)
         {
-            var friendships = new List<(int friendId, string status)>();
+            var friendships = new List<(int friendId, RelationshipStateEnum status)>();
 
             try
             {
@@ -159,7 +160,7 @@ namespace ServerMessenger
                         while (await reader.ReadAsync())
                         {
                             var friendId = reader.GetInt32(0);
-                            var status = reader.GetString(1);
+                            var status = (RelationshipStateEnum)Enum.Parse(typeof(RelationshipStateEnum), reader.GetString(1));
 
                             friendships.Add((friendId, status));
                         }
