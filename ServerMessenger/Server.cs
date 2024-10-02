@@ -9,10 +9,8 @@ namespace ServerMessenger
     /// </summary>
     internal static class Server
     {
-        private static readonly Dictionary<int, List<string>> _pendingImageParts = new();
         public static Dictionary<string, TcpClient> Clients { get; private set; } = new();
         public static readonly object _lockClientsDict = new();
-        private static readonly object _lockPendingImageParts = new();
 
         public static void StartServer()
         {
@@ -87,8 +85,9 @@ namespace ServerMessenger
         private static async Task HandleClientAsync(TcpClient client)
         {
             Security.SendClientRSAkey(client);
-            var buffer = new byte[8092];
+            var buffer = new byte[32768];
             var username = string.Empty;
+            
             while (client.Connected)
             {
                 try
@@ -129,24 +128,8 @@ namespace ServerMessenger
                             break;
                         case 15: //Reiceiving profil pic
                             var id = root.GetProperty("id").GetInt32();
-                            var partNumber = root.GetProperty("partNumber").GetInt32();
-                            var imagePart = root.GetProperty("imagePart").GetString();
-                            lock (_lockPendingImageParts)
-                            {
-                                if (!_pendingImageParts.ContainsKey(id))
-                                {
-                                    _pendingImageParts[id] = new List<string>(new string[4]);
-                                }
-                                _pendingImageParts[id][partNumber - 1] = imagePart!;
-
-                                if (_pendingImageParts[id].All(part => !string.IsNullOrEmpty(part)))
-                                {
-                                    var fullBase64Image = string.Join("", _pendingImageParts[id]);
-                                    var imageBytes = Convert.FromBase64String(fullBase64Image);
-                                    _ = AccountInfoDatabase.ChangeProfilPic(id, imageBytes);
-                                    _pendingImageParts.Remove(id);
-                                }
-                            }
+                            var imageBytes = root.GetProperty("base64Image").GetBytesFromBase64();
+                            _ = AccountInfoDatabase.ChangeProfilPic(id, imageBytes);
                             break;
                     }
                 }

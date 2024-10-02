@@ -42,7 +42,8 @@ namespace ServerMessenger
             string fromAddress = "ccardoso7002@gmail.com";
             string toAddress = $"{user.Email}";
             string subject = "Verification Email";
-            string body = $"Hello {user.FirstName} {user.LastName} this is your verification code: {verificationCode}";
+            string body = $"Hello {user.FirstName} {user.LastName} this is your verification code: {verificationCode}." +
+                $" If you did not attempt to create an account, please disregard this email.";
 
             var mail = new MailMessage(fromAddress, toAddress, subject, body);
 
@@ -176,6 +177,12 @@ namespace ServerMessenger
                 var result = resultLogin.isSuccess;
                 var username = resultLogin.username;
                 var id = resultLogin.id;
+                string profilPic = "";
+
+                if (id.HasValue && result.HasValue && result.Value)
+                {
+                    profilPic = await AccountInfoDatabase.GetProfilPicAsync(id.Value, null) ?? "";
+                }
 
                 var loginPayload = new
                 {
@@ -184,30 +191,11 @@ namespace ServerMessenger
                     email,
                     password,
                     username,
-                    id
+                    id,
+                    profilPic
                 };
                 var loginJsonString = JsonSerializer.Serialize(loginPayload);
                 _ = Server.SendPayloadAsync(client, loginJsonString);
-
-                if (id.HasValue && result.HasValue && result.Value)
-                {
-                    var profilPic = await AccountInfoDatabase.GetProfilPicAsync(id.Value, null);
-
-                    if (!string.IsNullOrEmpty(profilPic))
-                    {
-                        int partSize = profilPic.Length / 4;
-                        string part1 = profilPic.Substring(0, partSize);
-                        string part2 = profilPic.Substring(partSize, partSize);
-                        string part3 = profilPic.Substring(partSize * 2, partSize);
-                        string part4 = profilPic.Substring(partSize * 3);
-
-                        _ = SendProfilPicPart(client, part1, 1);
-                        _ = SendProfilPicPart(client, part2, 2);
-                        _ = SendProfilPicPart(client, part3, 3);
-                        _ = SendProfilPicPart(client, part4, 4);
-                    }
-                }
-
                 _ = DisplayError.LogAsync("Sent login response and profile picture parts.");
 
                 if (id is not null)
@@ -227,22 +215,6 @@ namespace ServerMessenger
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "HandleLogin");
             }
-        }
-
-        /// <summary>
-        /// Gets called when receiving a code 8 message
-        /// </summary>
-        private static async Task SendProfilPicPart(TcpClient client, string part, int partNumber)
-        {
-            var picPartPayload = new
-            {
-                code = 16,
-                partNumber,
-                partData = part
-            };
-
-            var picJsonString = JsonSerializer.Serialize(picPartPayload);
-            await Server.SendPayloadAsync(client, picJsonString);
         }
 
         private static async Task SendUserFriendships(TcpClient client, int id)
@@ -265,7 +237,7 @@ namespace ServerMessenger
                     {
                         using (var image = Image.Load(Convert.FromBase64String(profilPic)))
                         {
-                            image.Mutate(x => x.Resize(50, 50));
+                            image.Mutate(x => x.Resize(100, 100));
                             using (var memoryStream = new MemoryStream())
                             {
                                 image.SaveAsPng(memoryStream);
@@ -279,7 +251,7 @@ namespace ServerMessenger
                         FriendId = friendId,
                         Status = status,
                         Username = username!,
-                        ProfilPic = base64ProfilePic
+                        ProfilPic = base64ProfilePic ?? ""
                     });
                 }
 
