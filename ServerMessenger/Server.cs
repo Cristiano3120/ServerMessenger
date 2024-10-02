@@ -87,7 +87,7 @@ namespace ServerMessenger
             Security.SendClientRSAkey(client);
             var buffer = new byte[32768];
             var username = string.Empty;
-            
+            //Guck warum das decrypten manchmal beim starten nicht klappt
             while (client.Connected)
             {
                 try

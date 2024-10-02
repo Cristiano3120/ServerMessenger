@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks.Sources;
 
 namespace ServerMessenger
 {
@@ -35,9 +36,17 @@ namespace ServerMessenger
             aes.IV = root.GetProperty("IV").GetBytesFromBase64();
             lock (_lock)
             {
+                _clientAes.Remove(client);
                 _clientAes.Add(client, aes);
             }
             _ = DisplayError.LogAsync("Saved Clients Aes key");
+
+            var payload = new
+            {
+                code = 16,
+            };
+            var jsonString = JsonSerializer.Serialize(payload);
+            _ = Server.SendPayloadAsync(client, jsonString);
         }
 
         public static void RemoveAes(TcpClient client)

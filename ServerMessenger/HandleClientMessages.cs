@@ -207,6 +207,7 @@ namespace ServerMessenger
                 {
                     lock (Server._lockClientsDict)
                     {
+                        Server.Clients.Remove(username);
                         Server.Clients.Add(username, client);
                     }
                 }

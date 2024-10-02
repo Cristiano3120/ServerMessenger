@@ -65,9 +65,8 @@ namespace ServerMessenger
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine(value: $"Error while logging: {ex.Message}");
                 lock (_lock)
                 {
                     _loggingList.Enqueue((log, $"[{DateTime.UtcNow:HH:mm:ss}]"));
