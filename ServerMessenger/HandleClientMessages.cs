@@ -323,5 +323,40 @@ namespace ServerMessenger
                 DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "HandleFriendRequest");
             }
         }
+
+        public static async Task HandleRelationShipStateUpdate(JsonElement root)
+        {
+            try
+            {
+                var userId = root.GetProperty("userId").GetInt32();
+                var username = root.GetProperty("username").GetString();
+                var friendId = root.GetProperty("friendId").GetInt32();
+                var friendUsername = root.GetProperty("friendUsername").GetString();
+                var taskByte = root.GetProperty("task").GetByte();
+                var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId, null);
+                _ = DisplayError.LogAsync((RelationshipStateEnum)taskByte);
+                if (await AccountInfoDatabase.UpdateRelationshipState(userId, friendId, (RelationshipStateEnum)taskByte))
+                {
+                    _ = DisplayError.LogAsync("Sending the relationship change to the affected client");
+                    var payload = new
+                    {
+                        code = 17,
+                        taskByte,
+                        username,
+                        profilPic,
+                        userId,
+                    };
+                    var jsonString = JsonSerializer.Serialize(payload);
+                    lock (Server._lockClientsDict)
+                    {
+                        _ = Server.SendPayloadAsync(Server.Clients[friendUsername!], jsonString);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "HandleRelationShipStateUpdate");
+            }
+        }
     }
 }

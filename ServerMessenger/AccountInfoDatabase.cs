@@ -84,7 +84,7 @@ namespace ServerMessenger
             }
         }
 
-        public static async Task UpdateRelationshipState(int userId, int friendId, RelationshipStateEnum state)
+        public static async Task<bool> UpdateRelationshipState(int userId, int friendId, RelationshipStateEnum state)
         {
             try
             {
@@ -126,13 +126,15 @@ namespace ServerMessenger
                                 cmd.CommandText = unblockORdeleteCommand;
                                 break;
                         }
-                        _ = cmd.ExecuteNonQueryAsync();
+                        await cmd.ExecuteNonQueryAsync();
+                        return true;
                     }
                 }
             }
             catch (Exception ex)
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "AccountInfoDatabase", "UpdateRelationshipState");
+                return false;
             }
         }
 
@@ -273,7 +275,7 @@ namespace ServerMessenger
                 }
                 else
                 {
-                    command = @"SELECT ""profilpicture"" FROM ""Users"" WHERE ""Username"" = @username";
+                    command = @"SELECT ""profilpicture"" FROM ""Users"" WHERE ""username"" = @username";
                 }
                 using var conn = new NpgsqlConnection(_connectionString);
                 {

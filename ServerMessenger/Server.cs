@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using Amazon.Runtime.Internal;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
@@ -34,7 +35,10 @@ namespace ServerMessenger
             {
                 _ = DisplayError.LogAsync($"Sending: {payload}");
                 _ = DisplayError.LogAsync($"Trying to send {encryption} encrypted data");
+
+                if (client == null|| client.Connected == false) throw new ArgumentNullException(nameof(client));
                 var buffer = payload != null ? Encoding.UTF8.GetBytes(payload) : throw new ArgumentNullException(nameof(payload));
+
                 if (encryption == EncryptionMode.AES)
                 {
                     _ = DisplayError.LogAsync("Encrypting data.");
@@ -115,15 +119,11 @@ namespace ServerMessenger
                         case 8: //Request to login
                             _ = HandleClientMessages.HandleLogin(client, root);
                             break;
-                        case 10: //Request to add a friend (USER THAT NEEDS TO GET THE REQUEST COULD BE OFFLINE)
+                        case 10: //Request to add a friend
                             _ = HandleClientMessages.HandleFriendRequest(client, root);
                             break;
-                        case 14: //Accept or decline request
-                            var userId = root.GetProperty("userId").GetInt32();
-                            var friendId = root.GetProperty("friendId").GetInt32();
-                            var taskByte = root.GetProperty("task").GetByte();
-                            Console.WriteLine((RelationshipStateEnum)taskByte);
-                            _ = AccountInfoDatabase.UpdateRelationshipState(userId, friendId, (RelationshipStateEnum)taskByte);
+                        case 14: //Request to change a RelationshipState
+                            _ = HandleClientMessages.HandleRelationShipStateUpdate(root);
                             break;
                         case 15: //Reiceiving profil pic
                             var id = root.GetProperty("id").GetInt32();
