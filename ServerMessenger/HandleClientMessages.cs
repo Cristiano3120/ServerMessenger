@@ -47,7 +47,7 @@ namespace ServerMessenger
 
             var mail = new MailMessage(fromAddress, toAddress, subject, body);
 
-            SmtpClient smtpClient = new SmtpClient("smtp.gmail.com", 587);
+            var smtpClient = new SmtpClient("smtp.gmail.com", 587);
             smtpClient.Credentials = new NetworkCredential(fromAddress, _emailAppPaswword);
             smtpClient.EnableSsl = true;
             smtpClient.Send(mail);
@@ -244,7 +244,6 @@ namespace ServerMessenger
 
                     listUsernames.Add(new Friend
                     {
-                        FriendId = friendId,
                         Status = status,
                         Username = username!,
                         ProfilPic = base64ProfilePic ?? ""
@@ -296,7 +295,6 @@ namespace ServerMessenger
                     {
                         code = 12,
                         usernameSender,
-                        senderId,
                         profilPic,
                     };
                     var jsonStringSendingRequest = JsonSerializer.Serialize(payloadSendingRequest);
@@ -330,12 +328,13 @@ namespace ServerMessenger
             {
                 var userId = root.GetProperty("userId").GetInt32();
                 var username = root.GetProperty("username").GetString();
-                var friendId = root.GetProperty("friendId").GetInt32();
                 var friendUsername = root.GetProperty("friendUsername").GetString();
                 var taskByte = root.GetProperty("task").GetByte();
                 var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId, null);
+                var friendId = await AccountInfoDatabase.GetUserIdByUsernameAsync(friendUsername!);
                 _ = DisplayError.LogAsync((RelationshipStateEnum)taskByte);
-                if (await AccountInfoDatabase.UpdateRelationshipState(userId, friendId, (RelationshipStateEnum)taskByte))
+                
+                if (await AccountInfoDatabase.UpdateRelationshipState(userId, friendId.Value, (RelationshipStateEnum)taskByte))
                 {
                     _ = DisplayError.LogAsync("Sending the relationship change to the affected client");
                     var payload = new
@@ -344,12 +343,15 @@ namespace ServerMessenger
                         taskByte,
                         username,
                         profilPic,
-                        userId,
                     };
+
                     var jsonString = JsonSerializer.Serialize(payload);
                     lock (Server._lockClientsDict)
                     {
-                        _ = Server.SendPayloadAsync(Server.Clients[friendUsername!], jsonString);
+                        if (Server.Clients.TryGetValue(friendUsername!, out var client))
+                        {
+                            _ = Server.SendPayloadAsync(client, jsonString);
+                        }
                     }
                 }
             }
