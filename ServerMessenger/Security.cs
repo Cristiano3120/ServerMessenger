@@ -2,7 +2,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks.Sources;
 
 namespace ServerMessenger
 {
@@ -14,7 +13,7 @@ namespace ServerMessenger
         private static RSAParameters _publicServerRSAKey;
         private static RSAParameters _privateServerRSAKey;
         public static readonly Dictionary<TcpClient, Aes> _clientAes = new();
-        public static readonly object _lock = new ();
+        public static readonly object lockAesDict = new ();
 
         public static void Initialize()
         {
@@ -34,7 +33,7 @@ namespace ServerMessenger
             var aes = Aes.Create();
             aes.Key = root.GetProperty("Key").GetBytesFromBase64();
             aes.IV = root.GetProperty("IV").GetBytesFromBase64();
-            lock (_lock)
+            lock (lockAesDict)
             {
                 _clientAes.Remove(client);
                 _clientAes.Add(client, aes);
@@ -52,7 +51,7 @@ namespace ServerMessenger
         public static void RemoveAes(TcpClient client)
         {
             _ = DisplayError.LogAsync("Removing the client from the dict");
-            lock (_lock)
+            lock (lockAesDict)
             {
                 _clientAes.Remove(client);
             }
@@ -65,7 +64,7 @@ namespace ServerMessenger
         {
             using (Aes aes = Aes.Create())
             {
-                lock (_lock)
+                lock (lockAesDict)
                 {
                     var clientAes = _clientAes.GetValueOrDefault(client) ?? throw new KeyNotFoundException("The client is not in the dictionary");
                     aes.Key = clientAes.Key;
@@ -189,7 +188,7 @@ namespace ServerMessenger
         private static string DecryptDataAES(TcpClient client, byte[] encryptedData)
         {
             Aes? clientAes;
-            lock (_lock)
+            lock (lockAesDict)
             {
                 _clientAes.TryGetValue(client, out clientAes);
             }

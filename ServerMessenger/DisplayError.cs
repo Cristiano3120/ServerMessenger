@@ -47,7 +47,7 @@ namespace ServerMessenger
                 Console.WriteLine(log);
                 lock (_lock)
                 {
-                    _loggingList.Enqueue((log.ToString()!, $"[{DateTime.UtcNow:HH:mm:ss}]"));
+                    _loggingList.Enqueue((log.ToString()!, $"[{DateTime.Now:HH:mm:ss}]"));
                 }
 
                 List<(string content, string timestamp)> logsToWrite;
@@ -69,7 +69,7 @@ namespace ServerMessenger
             {
                 lock (_lock)
                 {
-                    _loggingList.Enqueue((log.ToString()!, $"[{DateTime.UtcNow:HH:mm:ss}]"));
+                    _loggingList.Enqueue((log.ToString()!, $"[{DateTime.Now:HH:mm:ss}]"));
                 }
             }
         }

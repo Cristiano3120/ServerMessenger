@@ -16,11 +16,12 @@ namespace ServerMessenger
 
         public static void Initialize()
         {
+            var filepathAppPassword = @"C:\Users\Crist\Desktop\gmailAppPassword.txt";
             _ = DisplayError.LogAsync("Initializing HandleClientMessages");
-            if (File.Exists(@"C:\Users\Crist\Desktop\gmailAppPassword.txt"))
+            if (File.Exists(filepathAppPassword))
             {
                 _ = DisplayError.LogAsync("File exists");
-                using (var streamReader = new StreamReader(@"C:\Users\Crist\Desktop\gmailAppPassword.txt"))
+                using (var streamReader = new StreamReader(filepathAppPassword))
                 {
                     _emailAppPaswword = streamReader.ReadToEnd();
                 }
@@ -148,7 +149,7 @@ namespace ServerMessenger
             };
             var jsonString = JsonSerializer.Serialize(payload);
             _ = Server.SendPayloadAsync(client, jsonString);
-            lock (Server._lockClientsDict)
+            lock (Server.lockClientsDict)
             {
                 Server.Clients.Add(user.Username, client);
             }
@@ -205,7 +206,7 @@ namespace ServerMessenger
 
                 if (!string.IsNullOrEmpty(username))
                 {
-                    lock (Server._lockClientsDict)
+                    lock (Server.lockClientsDict)
                     {
                         Server.Clients.Remove(username);
                         Server.Clients.Add(username, client);
@@ -222,13 +223,12 @@ namespace ServerMessenger
         {
             try
             {
+                _ = DisplayError.LogAsync("Sending relationships");
                 var listIds = await AccountInfoDatabase.GetFriendshipsAsync(id);
                 var listUsernames = new List<Friend>();
 
                 foreach (var (friendId, status) in listIds)
                 {
-                    Console.WriteLine(id);
-                    Console.WriteLine(friendId);
                     var username = await AccountInfoDatabase.GetUsernameByIdAsync(friendId);
                     var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId: friendId, username: null);
                     string base64ProfilePic = "";
@@ -256,11 +256,50 @@ namespace ServerMessenger
                     friends = listUsernames
                 };
                 var jsonString = JsonSerializer.Serialize(payload);
-                _ = Server.SendPayloadAsync(client, jsonString);
+                await Server.SendPayloadAsync(client, jsonString);
+
+                var usernameClient = await AccountInfoDatabase.GetUsernameByIdAsync(id);
+                foreach (var (friendUsername, status, profilPic) in listUsernames)
+                {
+                    await SendUserChats(client, usernameClient!, friendUsername);
+                }
             }
             catch (Exception ex)
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "SendUserFriendship");
+            }
+        }
+
+        private static async Task SendUserChats(TcpClient client, string username, string friendUsername)
+        {
+            try
+            {
+                var friend = new UserAfterLogin()
+                {
+                    Username = friendUsername,
+                };
+
+                var user = new UserAfterLogin()
+                {
+                    Username = username
+                };
+                var chatID = await ChatsDatabse.GetChatID([user, friend]);
+                var messages = await ChatsDatabse.GetMessagesFromChat(chatID);
+
+                var payload = new
+                {
+                    code = 20,
+                    usernameFriend = friend.Username,
+                    messages
+                };
+
+                await Task.Delay(500);
+                var jsonString = JsonSerializer.Serialize(payload);
+                await Server.SendPayloadAsync(client, jsonString);
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "SendUserChats");
             }
         }
 
@@ -301,7 +340,7 @@ namespace ServerMessenger
 
                     TcpClient? receivingClient;
                     bool online;
-                    lock (Server._lockClientsDict)
+                    lock (Server.lockClientsDict)
                     {
                         online = Server.Clients.TryGetValue(usernameReceiver!, out receivingClient);
                     }
@@ -333,6 +372,32 @@ namespace ServerMessenger
                 var profilPic = await AccountInfoDatabase.GetProfilPicAsync(userId, null);
                 var friendId = await AccountInfoDatabase.GetUserIdByUsernameAsync(friendUsername!);
                 _ = DisplayError.LogAsync((RelationshipStateEnum)taskByte);
+
+                var relationShipState = (RelationshipStateEnum)taskByte;
+                if ((RelationshipStateEnum)taskByte == RelationshipStateEnum.Accepted)
+                {
+                    var chatUsers = new List<UserAfterLogin>
+                    {
+                        new UserAfterLogin() { Username = username! },
+                        new UserAfterLogin() { Username = friendUsername! }
+                    };
+                    _ = ChatsDatabse.CreateChatAsync(chatUsers);
+                }
+                else if (relationShipState == RelationshipStateEnum.Delete || relationShipState == RelationshipStateEnum.Blocked)
+                {
+                    var user1 = new UserAfterLogin()
+                    { 
+                        Username = username!
+                    };
+
+                    var user2 = new UserAfterLogin()
+                    {
+                        Username = friendUsername!
+                    };
+
+                    var chatID = await ChatsDatabse.GetChatID([user1, user2]);
+                    ChatsDatabse.DeleteChatAsync(chatID);
+                }
                 
                 if (await AccountInfoDatabase.UpdateRelationshipState(userId, friendId.Value, (RelationshipStateEnum)taskByte))
                 {
@@ -346,7 +411,7 @@ namespace ServerMessenger
                     };
 
                     var jsonString = JsonSerializer.Serialize(payload);
-                    lock (Server._lockClientsDict)
+                    lock (Server.lockClientsDict)
                     {
                         if (Server.Clients.TryGetValue(friendUsername!, out var client))
                         {
@@ -358,6 +423,58 @@ namespace ServerMessenger
             catch (Exception ex)
             {
                 DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "HandleRelationShipStateUpdate");
+            }
+        }
+
+        public static async Task HandleSentTextMessage(JsonElement root)
+        {
+            try
+            {
+                var usernameSender = root.GetProperty("username").GetString();
+                var usernameReceiver = root.GetProperty("friendUsername").GetString();
+                var content = root.GetProperty("message").GetString();
+                var time = root.GetProperty("time").GetDateTime();
+
+                lock (Server.lockClientsDict)
+                {
+                    if (Server.Clients.TryGetValue(usernameReceiver!, out var receiverTcp))
+                    {
+                        var payload = new
+                        {
+                            code = 19,
+                            usernameSender,
+                            content,
+                            time,
+                        };
+
+                        var jsonString = JsonSerializer.Serialize(payload);
+                        _ = Server.SendPayloadAsync(receiverTcp, jsonString);
+                    }
+                }
+
+                var user = new UserAfterLogin()
+                {
+                    Username = usernameSender!,
+                };
+
+                var friend = new UserAfterLogin()
+                {
+                    Username = usernameReceiver!,
+                };
+
+                var message = new Message()
+                {
+                    Content = content!,
+                    Sender = user,
+                    Time = time,
+                };
+
+                var chatID = await ChatsDatabse.GetChatID([user, friend]);
+                _ = ChatsDatabse.AddMessageToChat(chatID, message);
+            }
+            catch (Exception ex)
+            {
+                DisplayError.DisplayBasicErrorInfos(ex, "HandleClientMessages", "HandleSentTextMessage");
             }
         }
     }

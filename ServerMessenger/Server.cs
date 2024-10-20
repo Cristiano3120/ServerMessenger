@@ -1,5 +1,4 @@
-﻿using Amazon.Runtime.Internal;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
@@ -11,7 +10,7 @@ namespace ServerMessenger
     internal static class Server
     {
         public static Dictionary<string, TcpClient> Clients { get; private set; } = new();
-        public static readonly object _lockClientsDict = new();
+        public static readonly object lockClientsDict = new();
 
         public static void StartServer()
         {
@@ -20,11 +19,16 @@ namespace ServerMessenger
             HandleClientMessages.Initialize();
             Security.Initialize();
             AccountInfoDatabase.Initialize();
-            Task.Run(() => AcceptClients());
+            ChatsDatabse.Initialize();
+            Task.Run(AcceptClients);
         }
 
+        /// <summary>
+        /// Stops the Server and logs the reason.
+        /// </summary>
         public static void StopServer(string reason)
         {
+            _ = DisplayError.LogAsync(reason);
             _ = DisplayError.LogAsync("Stopping the Server");
             throw new Exception(reason);
         }
@@ -34,9 +38,8 @@ namespace ServerMessenger
             try
             {
                 _ = DisplayError.LogAsync($"Sending: {payload}");
-                _ = DisplayError.LogAsync($"Trying to send {encryption} encrypted data");
 
-                if (client == null|| client.Connected == false) throw new ArgumentNullException(nameof(client));
+                if (client == null || client.Connected == false) throw new ArgumentNullException(nameof(client));
                 var buffer = payload != null ? Encoding.UTF8.GetBytes(payload) : throw new ArgumentNullException(nameof(payload));
 
                 if (encryption == EncryptionMode.AES)
@@ -44,6 +47,7 @@ namespace ServerMessenger
                     _ = DisplayError.LogAsync("Encrypting data.");
                     buffer = Security.EncryptDataAes(client, buffer);
                 }
+                Console.WriteLine($"Buffer length: {buffer.Length}");
                 await client.Client.SendAsync(buffer);
             }
             catch (SocketException ex)
@@ -72,7 +76,7 @@ namespace ServerMessenger
                     {
                         _ = DisplayError.LogAsync("Accepting a client");
                         var client = listener.AcceptTcpClient();
-                        _ = Task.Run(() => { _ = HandleClientAsync(client); });
+                        _ = Task.Run(() => _ = HandleClientAsync(client));
                     }
                 }
             }
@@ -89,7 +93,7 @@ namespace ServerMessenger
         private static async Task HandleClientAsync(TcpClient client)
         {
             Security.SendClientRSAkey(client);
-            var buffer = new byte[32768];
+            var buffer = new byte[65536];
             var username = string.Empty;
             while (client.Connected)
             {
@@ -130,6 +134,9 @@ namespace ServerMessenger
                             var imageBytes = root.GetProperty("base64Image").GetBytesFromBase64();
                             _ = AccountInfoDatabase.ChangeProfilPic(id, imageBytes);
                             break;
+                        case 18: //A user sent a message to another user
+                            _ = HandleClientMessages.HandleSentTextMessage(root);
+                            break;
                     }
                 }
                 catch (ArgumentNullException ex)
@@ -150,13 +157,14 @@ namespace ServerMessenger
             if (username != string.Empty)
             {
                 _ = DisplayError.LogAsync($"Removing {username} from the online dict");
-                lock (_lockClientsDict)
+                lock (lockClientsDict)
                 {
                     Clients.Remove(username);
                 }
             }
             Security.RemoveAes(client);
-            client.Close();   
+            client.Close();
+            Console.Clear();
         }
 
         private static IPAddress GetIPAddress()

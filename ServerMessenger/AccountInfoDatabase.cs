@@ -1,5 +1,4 @@
 ﻿using Npgsql;
-using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -144,7 +143,7 @@ namespace ServerMessenger
 
             try
             {
-                Console.WriteLine("Trying to get all pending friend requests and friends of the user");
+                _ = DisplayError.LogAsync("Trying to get all pending friend requests and friends of the user");
 
                 var command = @"SELECT CASE WHEN userid = @userId THEN friendid ELSE userid END AS friendid, 
                 status FROM friendships WHERE (userid = @userId OR friendid = @userId) AND (status != 'Pending' 
