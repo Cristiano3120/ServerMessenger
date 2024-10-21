@@ -15,8 +15,8 @@ namespace ServerMessenger
         private static string? _connectionString;
         private static string? _password;
         private static byte[]? _salt;
-        private static byte[] _key;
-        private static byte[] _iv;
+        public static byte[] Key { get; private set; }
+        public static byte[] Iv { get; private set; }
 
         /// <summary>
         /// Reads crutial vars for the Server from files
@@ -44,7 +44,7 @@ namespace ServerMessenger
                 }
 
                 ReadEncryptionAndConnectionString();
-                DeriveKeyAndIV(_password!, _salt!, out _key, out _iv);
+                DeriveKeyAndIV(_password!, _salt!);
             }
             catch (Exception ex)
             {
@@ -60,12 +60,12 @@ namespace ServerMessenger
         /// <param name="salt">he salt needed to get the AES key.</param>
         /// <param name="key">The corresponding AES key.</param>
         /// <param name="iv">The corresponding AES IV.</param>
-        public static void DeriveKeyAndIV(string password, byte[] salt, out byte[] key, out byte[] iv)
+        public static void DeriveKeyAndIV(string password, byte[] salt)
         {
             using (var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256))
             {
-                key = pbkdf2.GetBytes(32);
-                iv = pbkdf2.GetBytes(16);
+                Key = pbkdf2.GetBytes(32);
+                Iv = pbkdf2.GetBytes(16);
             }
         }
 
@@ -219,7 +219,7 @@ namespace ServerMessenger
                         if (result != null)
                         {
                             var encryptedUsername = result.ToString();
-                            return Security.DecryptDataAES(Convert.FromBase64String(encryptedUsername!), _key, _iv);
+                            return Security.DecryptDataAES(Convert.FromBase64String(encryptedUsername!), Key, Iv);
                         }
                     }
                 }
@@ -243,7 +243,7 @@ namespace ServerMessenger
 
                     using (var cmd = new NpgsqlCommand(query, conn))
                     {
-                        var encryptedUsernameAsBytes = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(username), _key, _iv);
+                        var encryptedUsernameAsBytes = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(username), Key, Iv);
                         var encryptedUsername = Convert.ToBase64String(encryptedUsernameAsBytes);
                         cmd.Parameters.AddWithValue("@u", encryptedUsername);
                         var result = await cmd.ExecuteScalarAsync();
@@ -319,9 +319,9 @@ namespace ServerMessenger
                 {
                     await conn.OpenAsync();
 
-                    var encryptedEmailData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(email), _key, _iv);
+                    var encryptedEmailData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(email), Key, Iv);
                     var encryptedEmail = Convert.ToBase64String(encryptedEmailData);
-                    var encryptedPasswordData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(password), _key, _iv);
+                    var encryptedPasswordData = Security.EncryptDataAESDatabase(Encoding.UTF8.GetBytes(password), Key, Iv);
                     var encryptedPassword = Convert.ToBase64String(encryptedPasswordData);
 
                     using (var cmd = new NpgsqlCommand(command, conn))
@@ -340,7 +340,7 @@ namespace ServerMessenger
                             if (encryptedPassword == storedPassword)
                             {
                                 var encryptedData = Convert.FromBase64String(username);
-                                username = Security.DecryptDataAES(encryptedData, _key, _iv);
+                                username = Security.DecryptDataAES(encryptedData, Key, Iv);
                                 return (true, username, id);
                             }
                         }
@@ -402,7 +402,7 @@ namespace ServerMessenger
                     {
                         _ = DisplayError.LogAsync($"{test[i]}: {dataToPutInDb[i]}");
                         var dataAsBytes = Encoding.UTF8.GetBytes(dataToPutInDb[i]);
-                        var encryptedData = Security.EncryptDataAESDatabase(dataAsBytes, _key, _iv);
+                        var encryptedData = Security.EncryptDataAESDatabase(dataAsBytes, Key, Iv);
                         dataToPutInDb[i] = Convert.ToBase64String(encryptedData);
                         _ = DisplayError.LogAsync($"{test[i]}: {dataToPutInDb[i]}");
                         _ = DisplayError.LogAsync("///////////////////");
@@ -445,11 +445,11 @@ namespace ServerMessenger
                     _ = DisplayError.LogAsync("Checking if the Email/ Username is already in the Database");
                     //Encrypting email
                     var dataAsBytes = Encoding.UTF8.GetBytes(user.Email);
-                    var encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _iv);
+                    var encrypted = Security.EncryptDataAESDatabase(dataAsBytes, Key, Iv);
                     var email = Convert.ToBase64String(encrypted);
                     //Encrypting username
                     dataAsBytes = Encoding.UTF8.GetBytes(user.Username);
-                    encrypted = Security.EncryptDataAESDatabase(dataAsBytes, _key, _iv);
+                    encrypted = Security.EncryptDataAESDatabase(dataAsBytes, Key, Iv);
                     var username = Convert.ToBase64String(encrypted);
                     using (var cmd = new NpgsqlCommand(command, conn))
                     {
@@ -512,7 +512,7 @@ namespace ServerMessenger
                     await conn.OpenAsync();
                     _ = DisplayError.LogAsync("Checking if user exists");
                     var usernameBytes = Encoding.UTF8.GetBytes(username);
-                    var encryptedBytes = Security.EncryptDataAESDatabase(usernameBytes, _key, _iv);
+                    var encryptedBytes = Security.EncryptDataAESDatabase(usernameBytes, Key, Iv);
                     var encryptedUsername = Convert.ToBase64String(encryptedBytes);
                     using (var cmd = new NpgsqlCommand(command, conn))
                     {

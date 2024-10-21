@@ -1,5 +1,7 @@
 ﻿using MongoDB.Driver;
 using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text;
 
 namespace ServerMessenger
 {
@@ -60,6 +62,12 @@ namespace ServerMessenger
         public static async Task AddMessageToChat(uint chatID, Message message)
         {
             _ = DisplayError.LogAsync($"Adding a message to the chat {chatID}");
+
+            var contentBytes = Encoding.UTF8.GetBytes(message.Content);
+            var encryptedContentBytes = Security.EncryptDataAESDatabase(contentBytes, AccountInfoDatabase.Key, AccountInfoDatabase.Iv);
+            var encryptedContent = Convert.ToBase64String(encryptedContentBytes);
+            message.Content = encryptedContent;
+
             var filter = Builders<Chat>.Filter.Eq(x => x.ChatId, chatID);
             var update = Builders<Chat>.Update.Push(x => x.Messages, message);
             var result = await _database.UpdateOneAsync(filter, update);
@@ -77,7 +85,22 @@ namespace ServerMessenger
         {
             _ = DisplayError.LogAsync($"Getting messages from the chat {chatID}");
             var chatVerlauf = await _database.FindAsync(x => x.ChatId == chatID);
-            return chatVerlauf.FirstOrDefault().Messages;
+            var messages = chatVerlauf.FirstOrDefault().Messages;
+
+            if (messages != null)
+            {
+                return messages.Select(messageElement =>
+                {
+                    var contentBytes = Convert.FromBase64String(messageElement.Content);
+                    var decryptedContent = Security.DecryptDataAES(contentBytes, AccountInfoDatabase.Key, AccountInfoDatabase.Iv);
+                    messageElement.Content = decryptedContent;
+                    return messageElement;
+                }).ToList();
+            }
+            else
+            {
+                return [];
+            }
         }
 
         private static async Task<uint> GenerateChatIdAsync()
