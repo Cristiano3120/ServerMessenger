@@ -1,0 +1,31 @@
+﻿C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Enums\EncryptionMode.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Enums\NpgsqlExceptions.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Enums\OpCode.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Global Rules\GlobalSuppressions.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Global Rules\GlobalUsings.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\GlobalSuppressions.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\HandleUserRequests.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Json\JsonConverters.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Json\JsonExtensions.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Logging\ILoggable.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Logging\Logger.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\NpgsqlExceptionInfo.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\PersonalDataDatabase.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Security.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Server.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\UnnecessaryClasses\Program.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\UnnecessaryClasses\Worker.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\User.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\UserData.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\obj\Debug\net9.0\Server Messenger.GlobalUsings.g.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\obj\Debug\net9.0\.NETCoreApp,Version=v9.0.AssemblyAttributes.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\obj\Debug\net9.0\Server Messenger.AssemblyInfo.cs
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Settings\appsettings.Development.json
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Settings\appsettings.json
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\LetzterStand.txt
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\NeededFiles\StartServer.bat
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Settings\.editorconfig
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Settings\Dockerfile
+C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Properties\launchSettings.json
+C:\Users\Crist\.nuget\packages\zstdnet\1.4.5\build\x64\libzstd.dll
+C:\Users\Crist\.nuget\packages\zstdnet\1.4.5\build\x86\libzstd.dll
