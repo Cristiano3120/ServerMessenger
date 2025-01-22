@@ -21,20 +21,18 @@ namespace Server_Messenger
 
         #region CreateAccount
 
-        public static async Task<(NpgsqlExceptionInfos, DatabaseInfos databaseInfos)> CreateAccount(User user)
+        public static async Task<NpgsqlExceptionInfos> CreateAccount(User user)
         {
             try
             {
-                const string query = @"INSERT INTO users (username, hashtag, email, password, biography, birthday, profilpic, id, local_db_password) 
-                VALUES (@username, @hashTag, @email, @password, @biography, @birthday, @profilpic, @id, @localDBPassword);";
+                const string query = @"INSERT INTO users (username, hashtag, email, password, biography, birthday, profilpic, id) 
+                VALUES (@username, @hashTag, @email, @password, @biography, @birthday, @profilpic, @id);";
 
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
 
                 if (user.Id == -1)
                     user.Id = GetHighestID();
-
-                string password = Guid.NewGuid().ToString();
 
                 var cmd = new NpgsqlCommand(query, conn);
                 cmd.Parameters.AddWithValue("@username", Security.EncryptAesDatabase<string, string>(user.Username));
@@ -45,9 +43,9 @@ namespace Server_Messenger
                 cmd.Parameters.AddWithValue("@profilpic", Security.EncryptAesDatabase<byte[], byte[]>(user.ProfilePicture));
                 cmd.Parameters.AddWithValue("@birthday", user.Birthday!.Value);
                 cmd.Parameters.AddWithValue("@id", user.Id);
-                cmd.Parameters.AddWithValue("@localDBPassword", password);
                 await cmd.ExecuteNonQueryAsync();
-                return (new NpgsqlExceptionInfos(), new DatabaseInfos(password, true));
+
+                return (new NpgsqlExceptionInfos());
             }
             catch (NpgsqlException ex)
             {
@@ -55,7 +53,7 @@ namespace Server_Messenger
                 if (exception.ColumnName == "id")
                     await CreateAccount(user);
 
-                return (exception, new());
+                return exception;
             }
         }
 
@@ -81,7 +79,7 @@ namespace Server_Messenger
 
         #endregion
 
-        public static async Task<(User? user, NpgsqlExceptionInfos npgsqlExceptionInfos, DatabaseInfos databaseInfos)> CheckLoginData(string email, string password)
+        public static async Task<(User? user, NpgsqlExceptionInfos npgsqlExceptionInfos)> CheckLoginData(string email, string password)
         {
             try
             {
@@ -97,7 +95,7 @@ namespace Server_Messenger
                 using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
 
                 if (!reader.HasRows)
-                    return (null, new NpgsqlExceptionInfos(NpgsqlExceptions.WrongLoginData), "");
+                    return (null, new NpgsqlExceptionInfos(NpgsqlExceptions.WrongLoginData));
 
                 await reader.ReadAsync();
                 var user = new User()
@@ -112,14 +110,12 @@ namespace Server_Messenger
                     ProfilePicture = Security.DecryptAesDatabase<byte[], byte[]>(await reader.GetFieldValueAsync<byte[]>("profilpic")),
                 };
 
-                string dbPassword = reader.GetString("local_db_password");
-                bool dbUpdated = reader.GetBoolean("local_db_updated");
-                return (user, new NpgsqlExceptionInfos(), new DatabaseInfos(dbPassword, dbUpdated));
+                return (user, new NpgsqlExceptionInfos());
             }
             catch (NpgsqlException ex)
             {
                 NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlException(ex);
-                return (null, exceptionInfos, new());
+                return (null, exceptionInfos);
             }
         }
 
@@ -132,10 +128,7 @@ namespace Server_Messenger
             {
                 case "08001" or "08006" or "08003":
                     await Server.Shutdown();
-                    return new NpgsqlExceptionInfos()
-                    {
-                        Exception = NpgsqlExceptions.ConnectionError,
-                    };
+                    return new NpgsqlExceptionInfos(NpgsqlExceptions.ConnectionError);
                 case "23505":
                     var message = ex.Message;
                     string columnName = "";
@@ -150,11 +143,7 @@ namespace Server_Messenger
                         }
                     }
 
-                    return new NpgsqlExceptionInfos()
-                    {
-                        Exception = NpgsqlExceptions.AccCreationError,
-                        ColumnName = columnName ?? "",
-                    };
+                    return new NpgsqlExceptionInfos(NpgsqlExceptions.AccCreationError, columnName);
                 default:
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.UnknownError);
             }

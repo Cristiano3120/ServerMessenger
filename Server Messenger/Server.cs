@@ -87,7 +87,7 @@ namespace Server_Messenger
                     byte[] decompressedBytes = Security.DecompressData(decryptedData);
                     var completeMessage = Encoding.UTF8.GetString(decompressedBytes);
 
-                    Logger.LogInformation(ConsoleColor.Green, logs: $"[RECEIVED]: {completeMessage}");
+                    Logger.LogInformation(ConsoleColor.Green, $"[RECEIVED]: {completeMessage}");
                     ClearMs(ms);
 
                     await HandleReceivedMessage(client, JsonDocument.Parse(completeMessage).RootElement);
@@ -186,7 +186,7 @@ namespace Server_Messenger
             catch (Exception ex)
             {
                 Logger.LogError(ex);
-                await client.CloseAsync(WebSocketCloseStatus.Empty, null, CancellationToken.None);
+                await client.CloseAsync(WebSocketCloseStatus.InternalServerError, null, CancellationToken.None);
             }
         }
 

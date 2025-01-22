@@ -22,6 +22,7 @@ namespace Server_Messenger
 
         public static async Task CreateAccount(WebSocket client, JsonElement message)
         {
+            Logger.LogInformation("Received a request to create an account");
             User? user = JsonSerializer.Deserialize<User>(message, Server.JsonSerializerOptions);
 
             if (user == null)
@@ -30,21 +31,22 @@ namespace Server_Messenger
                 return;
             }
 
-            (NpgsqlExceptionInfos error, DatabaseInfos dbInfos) = await PersonalDataDatabase.CreateAccount(user);
+            NpgsqlExceptionInfos error = await PersonalDataDatabase.CreateAccount(user);
 
-            await AnswerClient(client, OpCode.AnswerToCreateAccount, user, error, dbInfos);
+            await AnswerClient(client, OpCode.AnswerToCreateAccount, user, error);
         }
 
         public static async Task RequestToLogin(WebSocket client, JsonElement message)
         {
+            Logger.LogInformation("Received an login request");
             string email = message.GetProperty("email").GetString()!;
             string password = message.GetProperty("password").GetString()!;
 
-            (User? user, NpgsqlExceptionInfos error, DatabaseInfos dbInfos) = await PersonalDataDatabase.CheckLoginData(email, password);
-            await AnswerClient(client, OpCode.AnswerToLogin, user, error, dbInfos);
+            (User? user, NpgsqlExceptionInfos error) = await PersonalDataDatabase.CheckLoginData(email, password);
+            await AnswerClient(client, OpCode.AnswerToLogin, user, error);
         }
 
-        private static async Task AnswerClient(WebSocket client, OpCode code, User? user, NpgsqlExceptionInfos error, DatabaseInfos dbInfos)
+        private static async Task AnswerClient(WebSocket client, OpCode code, User? user, NpgsqlExceptionInfos error)
         {
             if (user != null && error.Exception == NpgsqlExceptions.None)
             {
@@ -65,8 +67,7 @@ namespace Server_Messenger
             {
                 code,
                 user,
-                error,
-                dbInfos
+                npgsqlException = error,
             };
             await Server.SendPayloadAsync(client, payload);
         }

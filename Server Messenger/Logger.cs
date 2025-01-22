@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace Server_Messenger.Logging
+namespace Server_Messenger
 {
     public static partial class Logger
     {
@@ -10,25 +10,17 @@ namespace Server_Messenger.Logging
         private static partial Regex FilterProfilPicRegex();
 
         #region LogInformation
+
         public static void LogInformation(ConsoleColor color, params string[] logs)
         {
             Console.ForegroundColor = color;
-            LogInformationHelper(logs);
+            Log(color, logs);
         }
 
         public static void LogInformation(params string[] logs)
         {
             Console.ForegroundColor = ConsoleColor.White;
-            LogInformationHelper(logs);
-        }
-
-        private static void LogInformationHelper(params string[] logs)
-        {
-            for (int i = 0; i < logs.Length; i++)
-            {
-                string message = FilterProfilPicRegex().Replace(logs[i], "$1[Image]$2");
-                Console.WriteLine($"[{DateTime.Now}]: {message}");
-            }
+            Log(ConsoleColor.White, logs);
         }
 
         #endregion
@@ -92,30 +84,19 @@ namespace Server_Messenger.Logging
                 Log(ConsoleColor.Red, errorInfos);
             }
 
-            List<string> logs = [$"ERROR: {ex.Message}"];
-
-            if (ex is NpgsqlException npgsqlException)
-            {
-                logs.Add($"ERRORCODE: {npgsqlException.ErrorCode}");
-                logs.Add($"SQLSTATE: {npgsqlException.SqlState}");
-            }
-
-            Log(ConsoleColor.Red, logs);
+            Log(ConsoleColor.Red, $"ERROR: {ex.Message}");
         }
 
-        private static void Log(ConsoleColor color, string log)
+        /// <summary>
+        /// The method that filters the logs and writes them into the Console
+        /// </summary>
+        private static void Log(ConsoleColor color, params string[] logs)
         {
             Console.ForegroundColor = color;
-            Console.WriteLine($"{DateTime.Now:HH: dd: ss} {log}");
-            Console.WriteLine("");
-        }
-
-        private static void Log(ConsoleColor color, IList<string> logs)
-        {
-            Console.ForegroundColor = color;
-            foreach (var log in logs)
+            for (int i = 0; i < logs.Length; i++)
             {
-                Console.WriteLine($"{DateTime.Now:HH: dd: ss} {log}");
+                string message = FilterProfilPicRegex().Replace(logs[i], "$1[Image]$2");
+                Console.WriteLine($"[{DateTime.Now:HH: dd: ss}]: {message}");
             }
             Console.WriteLine("");
         }
