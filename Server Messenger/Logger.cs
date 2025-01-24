@@ -55,7 +55,7 @@ namespace Server_Messenger
                 return;
             }
 
-            var ex = exception as Exception
+            Exception ex = exception as Exception
                 ?? throw new ArgumentException($"Type {typeof(T).Name} must be of type EXCEPTION, UnobservedTaskExceptionEventArgs, NpgsqlExceptin or string.");
 
             StackTrace stackTrace = new(ex, true);

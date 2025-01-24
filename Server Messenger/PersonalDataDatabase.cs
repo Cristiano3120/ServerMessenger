@@ -66,9 +66,9 @@ namespace Server_Messenger
                 conn.Open();
                 using var cmd = new NpgsqlCommand(query, conn);
                 var result = cmd.ExecuteScalar();
-                if (result == DBNull.Value)
-                    return 1;
-                return Convert.ToInt64(result) + 1;
+                return result == DBNull.Value 
+                    ? 1 
+                    : Convert.ToInt64(result) + 1;
             }
             catch (Exception ex)
             {

@@ -12,7 +12,7 @@ namespace Server_Messenger
         public string Password { get; init; } = "";
         public string Biography { get; set; } = "";
         public long Id { get; set; } = -1;
-        public DateOnly? Birthday { get; init; } = null;
+        public DateOnly? Birthday { get; init; }
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
@@ -31,6 +31,5 @@ namespace Server_Messenger
             return GetEnumerator();
         }
     }
-
 }
 

@@ -35,7 +35,7 @@ namespace Server_Messenger
         public static async Task Shutdown()
         {
             Logger.LogWarning("Server is shutting down!");
-            foreach (var client in _clients.Values)
+            foreach (WebSocket client in _clients.Values)
             {
                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down!", CancellationToken.None);
             }
@@ -73,7 +73,7 @@ namespace Server_Messenger
             {
                 try
                 {
-                    var receivedDataInfo = await client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                    WebSocketReceiveResult receivedDataInfo = await client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                     Logger.LogInformation(ConsoleColor.Cyan, $"[RECEIVED]: The received payload is {receivedDataInfo.Count} bytes long");
 
                     await ms.WriteAsync(buffer.AsMemory(0, receivedDataInfo.Count));
@@ -107,7 +107,7 @@ namespace Server_Messenger
 
         private static async Task HandleReceivedMessage(WebSocket client, JsonElement message)
         {
-            var code = message.GetProperty("code").GetOpCode();
+            OpCode code = message.GetProperty("code").GetOpCode();
             try
             {
                 switch (code)

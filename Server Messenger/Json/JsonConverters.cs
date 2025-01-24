@@ -12,7 +12,7 @@ namespace Server_Messenger.Json
             {
                 using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
                 {
-                    var root = doc.RootElement.GetProperty("user");
+                    JsonElement root = doc.RootElement.GetProperty("user");
                     return new User()
                     {
                         ProfilePicture = root.GetProperty("ProfilePicture").GetBytesFromBase64(),
@@ -31,7 +31,7 @@ namespace Server_Messenger.Json
             {
                 writer.WriteStartObject();
 
-                foreach (var item in value)
+                foreach ((string name, string value) item in value)
                 {
                     writer.WritePropertyName(item.name);
                     writer.WriteStringValue(item.value);

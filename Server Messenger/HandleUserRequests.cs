@@ -50,7 +50,7 @@ namespace Server_Messenger
         {
             if (user != null && error.Exception == NpgsqlExceptions.None)
             {
-                Server.ClientsData.TryGetValue(client, out var value);
+                Server.ClientsData.TryGetValue(client, out UserData? value);
 
                 value = value! with 
                 { 

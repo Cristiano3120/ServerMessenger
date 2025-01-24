@@ -83,9 +83,9 @@ namespace Server_Messenger
             if (dataToEncrypt.Length == 0)
                 throw new InvalidOperationException("Data to encrypt is empty.");
 
-            if (Server.ClientsData.TryGetValue(client, out var userdata))
+            if (Server.ClientsData.TryGetValue(client, out UserData? userdata))
             {
-                var (_, aes) = userdata;
+                (long _, Aes aes) = userdata;
 
                 using (var ms = new MemoryStream())
                 {
@@ -130,7 +130,7 @@ namespace Server_Messenger
                 _ => throw new InvalidOperationException("TParam has an invalid type. Needs to be of type byte[] or string."),
             };
 
-            using var decryptor = _databaseAes!.CreateDecryptor();
+            using ICryptoTransform decryptor = _databaseAes!.CreateDecryptor();
             using var ms = new MemoryStream(encryptedBytes);
             using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
             using var resultStream = new MemoryStream();
@@ -148,11 +148,11 @@ namespace Server_Messenger
 
         public static byte[] DecryptAes(WebSocket client, byte[] encryptedData)
         {
-            if (Server.ClientsData.TryGetValue(client, out var userData))
+            if (Server.ClientsData.TryGetValue(client, out UserData? userData))
             {
                 (_, Aes aes) = userData;
 
-                var decryptor = aes.CreateDecryptor();
+                ICryptoTransform decryptor = aes.CreateDecryptor();
 
                 using var ms = new MemoryStream(encryptedData);
                 using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
