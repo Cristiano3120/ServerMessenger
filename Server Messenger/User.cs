@@ -13,6 +13,7 @@ namespace Server_Messenger
         public string Biography { get; set; } = "";
         public long Id { get; set; } = -1;
         public DateOnly? Birthday { get; init; }
+        public bool FaEnabled { get; set; }
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
@@ -24,6 +25,7 @@ namespace Server_Messenger
             yield return (nameof(Id), Id.ToString());
             yield return (nameof(Birthday), Birthday?.ToString(new CultureInfo("de-DE")) ?? "");
             yield return (nameof(ProfilePicture), Convert.ToBase64String(ProfilePicture));
+            yield return (nameof(FaEnabled), FaEnabled.ToString());
         }
 
         IEnumerator IEnumerable.GetEnumerator()

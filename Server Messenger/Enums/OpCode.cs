@@ -9,5 +9,7 @@
         AnswerToCreateAccount = 4,
         RequestLogin = 5,
         AnswerToLogin = 6,
+        RequestToVerifiy = 7,
+        VerificationWentWrong = 8,
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Net.Mail;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
@@ -11,8 +12,10 @@ namespace Server_Messenger
     {
         private static readonly ConcurrentDictionary<long, WebSocket> _clients = new();
         public static ConcurrentDictionary<WebSocket, UserData> ClientsData { get; private set; } = new();
+        public static ConcurrentDictionary<WebSocket, VerificationInfos> VerificationCodes { get; private set; } = new();
         public static JsonSerializerOptions JsonSerializerOptions { get; private set; } = new();
-        public const string _pathToConfig = @"C:\Users\Crist\source\repos\Server Messenger\Server Messenger\Settings\appsettings.json";
+        public static JsonElement Config { get; private set; } = ReadConfig();
+        private static readonly string _emailPassword = ReadEmailPassword();
 
         public static void Start()
         {
@@ -76,6 +79,12 @@ namespace Server_Messenger
                     WebSocketReceiveResult receivedDataInfo = await client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                     Logger.LogInformation(ConsoleColor.Cyan, $"[RECEIVED]: The received payload is {receivedDataInfo.Count} bytes long");
 
+                    if (receivedDataInfo.MessageType == WebSocketMessageType.Close)
+                    {
+                        await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                        break;
+                    }
+
                     await ms.WriteAsync(buffer.AsMemory(0, receivedDataInfo.Count));
                     if (!receivedDataInfo.EndOfMessage)
                     {
@@ -102,7 +111,7 @@ namespace Server_Messenger
                     break;
                 }
             }
-            ClosingConn(client);
+            await ClosingConn(client);
         }
 
         private static async Task HandleReceivedMessage(WebSocket client, JsonElement message)
@@ -121,6 +130,9 @@ namespace Server_Messenger
                         break;
                     case OpCode.RequestLogin:
                         await HandleUserRequests.RequestToLogin(client, message);
+                        break;
+                    case OpCode.RequestToVerifiy:
+                        await HandleUserRequests.RequestToVerify(client, message);
                         break;
                 }
             }
@@ -148,11 +160,19 @@ namespace Server_Messenger
             ms.SetLength(0);
         }
 
-        public static void ClosingConn(WebSocket client)
+        public static async Task ClosingConn(WebSocket client)
         {
             Logger.LogInformation("Cleaning up the connection");
+
+            if (client.State == WebSocketState.Open)
+                await client.CloseAsync(WebSocketCloseStatus.InternalServerError, "", CancellationToken.None);
+
+            if (VerificationCodes.Remove(client, out VerificationInfos? verificationInfos))
+                await PersonalDataDatabase.RemoveUser(verificationInfos.Email);
+
             if (ClientsData.TryRemove(client, out UserData? userData))
                 _clients.TryRemove(userData.Id, out _);
+
             client.Dispose();
         }
 
@@ -212,11 +232,37 @@ namespace Server_Messenger
                 ?? throw new InvalidOperationException("Something went wrong while trying to execute the .bat file that starts the webserver");
 
             Logger.LogWarning($"Started the webserver!");
-            var jsonFileContent = File.ReadAllText(_pathToConfig);
-            JsonElement jsonElement = JsonDocument.Parse(jsonFileContent).RootElement;
-            return jsonElement.GetProperty("ServerUri").GetString() ?? throw new JsonException("The server uri couldn´t be accessed");
+            return Config.GetProperty("ServerUri").GetString() ?? throw new JsonException("The server uri couldn´t be accessed");
         }
 
+        private static JsonElement ReadConfig()
+        {
+            var jsonFileContent = File.ReadAllText("C:\\Users\\Crist\\source\\repos\\Server Messenger\\Server Messenger\\Settings\\appsettings.json");
+            return JsonDocument.Parse(jsonFileContent).RootElement;
+        }
+
+        private static string ReadEmailPassword() =>
+            Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
+        
         #endregion
+
+        public static async void SendEmail(User user, int verificationCode)
+        {
+            Logger.LogInformation($"Sending an email. Code: {verificationCode}");
+            //var fromAddress = "ccardoso7002@gmail.com";
+            //var toAddress = $"{user.Email}";
+            //var subject = $"Verification Email";
+            //var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
+            //    $" If you did not attempt to create an account, please disregard this email.";
+
+            //var mail = new MailMessage(fromAddress, toAddress, subject, body);
+
+            //var smtpClient = new SmtpClient("smtp.gmail.com", 587)
+            //{
+            //    Credentials = new NetworkCredential(fromAddress, _emailPassword),
+            //    EnableSsl = true
+            //};
+            //await smtpClient.SendMailAsync(mail);
+        }
     }
 }

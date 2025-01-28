@@ -1,6 +1,5 @@
 ﻿using Npgsql;
 using System.Data;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Server_Messenger
@@ -10,13 +9,11 @@ namespace Server_Messenger
         [GeneratedRegex(@"Schlüssel »\(([^)]+)\)")]
         public static partial Regex NpgsqlExceptionKeyRegex();
 
-        private static readonly string _connectionString = ReadConnString();        
+        private static readonly string _connectionString = ReadConnString();
 
         private static string ReadConnString()
         {
-            var content = File.ReadAllText(Server._pathToConfig);
-            JsonElement root = JsonDocument.Parse(content).RootElement;
-            return root.GetProperty("ConnectionStrings").GetProperty("PersonalDataDatabase").GetString()!;
+            return Server.Config.GetProperty("ConnectionStrings").GetProperty("PersonalDataDatabase").GetString()!;
         }
 
         #region CreateAccount
@@ -25,8 +22,8 @@ namespace Server_Messenger
         {
             try
             {
-                const string query = @"INSERT INTO users (username, hashtag, email, password, biography, birthday, profilpic, id) 
-                VALUES (@username, @hashTag, @email, @password, @biography, @birthday, @profilpic, @id);";
+                const string query = @"INSERT INTO users (username, hashtag, email, password, biography, birthday, profilpic, id, fa) 
+                VALUES (@username, @hashTag, @email, @password, @biography, @birthday, @profilpic, @id, @fa);";
 
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
@@ -43,6 +40,7 @@ namespace Server_Messenger
                 cmd.Parameters.AddWithValue("@profilpic", Security.EncryptAesDatabase<byte[], byte[]>(user.ProfilePicture));
                 cmd.Parameters.AddWithValue("@birthday", user.Birthday!.Value);
                 cmd.Parameters.AddWithValue("@id", user.Id);
+                cmd.Parameters.AddWithValue("@fa", user.FaEnabled);
                 await cmd.ExecuteNonQueryAsync();
 
                 return (new NpgsqlExceptionInfos());
@@ -66,8 +64,8 @@ namespace Server_Messenger
                 conn.Open();
                 using var cmd = new NpgsqlCommand(query, conn);
                 var result = cmd.ExecuteScalar();
-                return result == DBNull.Value 
-                    ? 1 
+                return result == DBNull.Value
+                    ? 1
                     : Convert.ToInt64(result) + 1;
             }
             catch (Exception ex)
@@ -103,11 +101,12 @@ namespace Server_Messenger
                     Username = Security.DecryptAesDatabase<string, string>(reader.GetString("username")),
                     HashTag = Security.DecryptAesDatabase<string, string>(reader.GetString("hashtag")),
                     Email = Security.DecryptAesDatabase<string, string>(reader.GetString("email")),
-                    Password = Security.DecryptAesDatabase<string, string>(reader.GetString("password")),
+                    Password = "",
                     Biography = Security.DecryptAesDatabase<string, string>(reader.GetString("biography")),
                     Id = reader.GetInt64("id"),
                     Birthday = DateOnly.FromDateTime(reader.GetDateTime("birthday")),
                     ProfilePicture = Security.DecryptAesDatabase<byte[], byte[]>(await reader.GetFieldValueAsync<byte[]>("profilpic")),
+                    FaEnabled = await reader.GetFieldValueAsync<bool>("fa"),
                 };
 
                 return (user, new NpgsqlExceptionInfos());
@@ -117,6 +116,17 @@ namespace Server_Messenger
                 NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlException(ex);
                 return (null, exceptionInfos);
             }
+        }
+
+        public static async Task RemoveUser(string email)
+        {
+            const string query = "DELETE FROM users WHERE email = @email";
+            var npgsqlConnection = new NpgsqlConnection(_connectionString);
+            await npgsqlConnection.OpenAsync();
+
+            var cmd = new NpgsqlCommand(query, npgsqlConnection);
+            cmd.Parameters.AddWithValue("@email", Security.EncryptAesDatabase<string, string>(email));
+            await cmd.ExecuteNonQueryAsync(); 
         }
 
         private static async Task<NpgsqlExceptionInfos> HandleNpgsqlException(NpgsqlException ex)
@@ -136,7 +146,7 @@ namespace Server_Messenger
                     if (!string.IsNullOrEmpty(message))
                     {
                         Match match = NpgsqlExceptionKeyRegex().Match(message);
-      
+
                         if (match.Success)
                         {
                             columnName = match.Groups[1].Value;

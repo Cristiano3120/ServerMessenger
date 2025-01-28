@@ -1,4 +1,5 @@
 ﻿using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Server_Messenger
@@ -20,6 +21,8 @@ namespace Server_Messenger
             await Server.SendPayloadAsync(client, payload);
         }
 
+        #region CreateAcc
+
         public static async Task CreateAccount(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received a request to create an account");
@@ -27,14 +30,31 @@ namespace Server_Messenger
 
             if (user == null)
             {
-                Server.ClosingConn(client);
+                await Server.ClosingConn(client);
                 return;
             }
 
             NpgsqlExceptionInfos error = await PersonalDataDatabase.CreateAccount(user);
 
+            if (error.Exception == NpgsqlExceptions.None)
+            {
+                int verificationCode = RandomNumberGenerator.GetInt32(10000000, 99999999);
+
+                VerificationInfos verificationInfo = new()
+                {
+                    VerificationCode = verificationCode,
+                    VerificationAttempts = 0,
+                    Email = user.Email
+                };
+
+                Server.VerificationCodes.TryAdd(client, verificationInfo);
+                Server.SendEmail(user, verificationCode);
+            }
+
             await AnswerClient(client, OpCode.AnswerToCreateAccount, user, error);
         }
+
+        #endregion
 
         public static async Task RequestToLogin(WebSocket client, JsonElement message)
         {
@@ -44,6 +64,53 @@ namespace Server_Messenger
 
             (User? user, NpgsqlExceptionInfos error) = await PersonalDataDatabase.CheckLoginData(email, password);
             await AnswerClient(client, OpCode.AnswerToLogin, user, error);
+
+            if (user != null && user.FaEnabled)
+            {
+                int verificationCode = RandomNumberGenerator.GetInt32(10000000, 99999999);
+                VerificationInfos verificationInfos = new()
+                {
+                    VerificationCode = verificationCode,
+                    VerificationAttempts = 0,
+                    Email = user.Email,
+                };
+                Server.SendEmail(user, verificationCode);
+                Server.VerificationCodes.TryAdd(client, verificationInfos);
+            }
+        }
+
+        public static async Task RequestToVerify(WebSocket client, JsonElement message)
+        {
+            Server.VerificationCodes.TryGetValue(client, out VerificationInfos? verificationInfos);
+            int userVerificationCode = message.GetProperty("verificationCode").GetInt32();
+            object payload;
+
+            if (verificationInfos == null || verificationInfos.VerificationAttempts == 5)
+            {
+                payload = new
+                {
+                    code = OpCode.VerificationWentWrong,
+                };
+                await Server.SendPayloadAsync(client, payload);
+                return;
+            }
+
+            bool success = userVerificationCode == verificationInfos.VerificationCode;
+            if (success)
+            {
+                Server.VerificationCodes.Remove(client, out _);
+            }
+            else
+            {
+                verificationInfos.VerificationAttempts++;
+            }
+
+            payload = new
+            {
+                code = OpCode.RequestToVerifiy,
+                success,
+            };
+            await Server.SendPayloadAsync(client, payload);
         }
 
         private static async Task AnswerClient(WebSocket client, OpCode code, User? user, NpgsqlExceptionInfos error)
