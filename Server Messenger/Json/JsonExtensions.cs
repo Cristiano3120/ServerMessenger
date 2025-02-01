@@ -5,6 +5,10 @@ namespace Server_Messenger.Json
 {
     internal static class JsonExtensions
     {
+        private const string _pathToConfig = "C:\\Users\\Crist\\source\\repos\\Server Messenger\\Server Messenger\\Settings\\appsettings.json";
+
+        #region GetExtensions
+
         /// <summary>
         /// Needs to be called on the <c>code</c> property of the <see cref="JsonElement"/>.
         /// Converts the data that is sent as an byte to the <see cref="OpCode"/> equivalent.
@@ -26,5 +30,17 @@ namespace Server_Messenger.Json
             aes.IV = property.GetProperty("iv").GetBytesFromBase64();
             return aes;
         }
+
+        #endregion
+
+        #region ReadJson
+
+        public static JsonElement ReadConfig()
+        {
+            string jsonFileContent = File.ReadAllText(_pathToConfig);
+            return JsonDocument.Parse(jsonFileContent).RootElement;
+        }
+
+        #endregion
     }
 }

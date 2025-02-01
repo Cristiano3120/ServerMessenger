@@ -14,7 +14,7 @@ namespace Server_Messenger
         public static ConcurrentDictionary<WebSocket, UserData> ClientsData { get; private set; } = new();
         public static ConcurrentDictionary<WebSocket, VerificationInfos> VerificationCodes { get; private set; } = new();
         public static JsonSerializerOptions JsonSerializerOptions { get; private set; } = new();
-        public static JsonElement Config { get; private set; } = ReadConfig();
+        public static JsonElement Config { get; private set; } = JsonExtensions.ReadConfig();
         private static readonly string _emailPassword = ReadEmailPassword();
 
         public static void Start()
@@ -134,6 +134,9 @@ namespace Server_Messenger
                     case OpCode.RequestToVerifiy:
                         await HandleUserRequests.RequestToVerify(client, message);
                         break;
+                    case OpCode.AutoLoginRequest:
+                        await HandleUserRequests.RequestToAutoLogin(client, message);
+                        break;
                 }
             }
             catch (InvalidOperationException ex)
@@ -168,7 +171,7 @@ namespace Server_Messenger
                 await client.CloseAsync(WebSocketCloseStatus.InternalServerError, "", CancellationToken.None);
 
             if (VerificationCodes.Remove(client, out VerificationInfos? verificationInfos))
-                await PersonalDataDatabase.RemoveUser(verificationInfos.Email);
+                await PersonalDataDatabase.RemoveUserAsync(verificationInfos.Email);
 
             if (ClientsData.TryRemove(client, out UserData? userData))
                 _clients.TryRemove(userData.Id, out _);
@@ -235,14 +238,8 @@ namespace Server_Messenger
             return Config.GetProperty("ServerUri").GetString() ?? throw new JsonException("The server uri couldn´t be accessed");
         }
 
-        private static JsonElement ReadConfig()
-        {
-            var jsonFileContent = File.ReadAllText("C:\\Users\\Crist\\source\\repos\\Server Messenger\\Server Messenger\\Settings\\appsettings.json");
-            return JsonDocument.Parse(jsonFileContent).RootElement;
-        }
-
-        private static string ReadEmailPassword() =>
-            Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
+        private static string ReadEmailPassword() 
+            => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
         
         #endregion
 

@@ -11,5 +11,7 @@
         AnswerToLogin = 6,
         RequestToVerifiy = 7,
         VerificationWentWrong = 8,
+        AutoLoginRequest = 9,
+        AutoLoginResponse = 10,
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Npgsql;
 
 namespace Server_Messenger
 {
@@ -34,9 +35,9 @@ namespace Server_Messenger
                 return;
             }
 
-            NpgsqlExceptionInfos error = await PersonalDataDatabase.CreateAccount(user);
+            (NpgsqlExceptionInfos npgsqlException, string token) = await PersonalDataDatabase.CreateAccount(user);
 
-            if (error.Exception == NpgsqlExceptions.None)
+            if (npgsqlException.Exception == NpgsqlExceptions.None)
             {
                 int verificationCode = RandomNumberGenerator.GetInt32(10000000, 99999999);
 
@@ -51,7 +52,14 @@ namespace Server_Messenger
                 Server.SendEmail(user, verificationCode);
             }
 
-            await AnswerClient(client, OpCode.AnswerToCreateAccount, user, error);
+            var payload = new
+            {
+                code = OpCode.AnswerToCreateAccount,
+                npgsqlException,
+                token,
+                user,       
+            };
+            await AnswerClient(client, npgsqlException, payload, user);
         }
 
         #endregion
@@ -62,8 +70,15 @@ namespace Server_Messenger
             string email = message.GetProperty("email").GetString()!;
             string password = message.GetProperty("password").GetString()!;
 
-            (User? user, NpgsqlExceptionInfos error) = await PersonalDataDatabase.CheckLoginData(email, password);
-            await AnswerClient(client, OpCode.AnswerToLogin, user, error);
+            (User? user, NpgsqlExceptionInfos npgsqlException) = await PersonalDataDatabase.CheckLoginDataAsync(email, password);
+
+            var payload = new
+            {
+                code = OpCode.AnswerToLogin,
+                npgsqlException,
+                user,
+            };
+            await AnswerClient(client, npgsqlException, payload, user);
 
             if (user != null && user.FaEnabled)
             {
@@ -77,6 +92,22 @@ namespace Server_Messenger
                 Server.SendEmail(user, verificationCode);
                 Server.VerificationCodes.TryAdd(client, verificationInfos);
             }
+        }
+
+        public static async Task RequestToAutoLogin(WebSocket client, JsonElement message)
+        {
+            Logger.LogInformation("Received an auto-login request");
+            string token = message.GetProperty("token").GetString()!;
+
+            (User? user, NpgsqlExceptionInfos npgsqlException) = await PersonalDataDatabase.CheckLoginDataAsync(token);
+
+            var payload = new
+            {
+                code = OpCode.AutoLoginResponse,
+                npgsqlException,
+                user,
+            };
+            await AnswerClient(client, npgsqlException, payload, user);
         }
 
         public static async Task RequestToVerify(WebSocket client, JsonElement message)
@@ -113,29 +144,21 @@ namespace Server_Messenger
             await Server.SendPayloadAsync(client, payload);
         }
 
-        private static async Task AnswerClient(WebSocket client, OpCode code, User? user, NpgsqlExceptionInfos error)
+        private static async Task AnswerClient(WebSocket client, NpgsqlExceptionInfos npgsqlException, object payload, User? user)
         {
-            if (user != null && error.Exception == NpgsqlExceptions.None)
+            if (npgsqlException.Exception == NpgsqlExceptions.None && user != null)
             {
-                Server.ClientsData.TryGetValue(client, out UserData? value);
+                Server.ClientsData.TryGetValue(client, out UserData? userData);
 
-                value = value! with 
+                //Add the Id to the user data 
+                userData = userData! with 
                 { 
                     Id = user.Id 
                 };
 
-                Server.ClientsData.AddOrUpdate(client, value, (_, _) =>
-                {
-                    return value;
-                });
+                Server.ClientsData.AddOrUpdate(client, userData, (_, _) => { return userData; });
             }
 
-            var payload = new
-            {
-                code,
-                user,
-                npgsqlException = error,
-            };
             await Server.SendPayloadAsync(client, payload);
         }
     }

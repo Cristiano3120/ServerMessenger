@@ -195,5 +195,19 @@ namespace Server_Messenger
         }
 
         #endregion
+
+        public static string Hash(string data)
+        {
+            using var rng = RandomNumberGenerator.Create();
+            byte[] saltBytes = new byte[16];
+            rng.GetBytes(saltBytes);
+
+            using var pbkdf2 = new Rfc2898DeriveBytes(data, saltBytes, 100000, HashAlgorithmName.SHA256);
+            byte[] dataHash = pbkdf2.GetBytes(32);
+
+            //[..array, ..array] is the same as calling .Concat()
+            byte[] dataSaltHash = [.. dataHash, .. saltBytes];
+            return Convert.ToBase64String(dataSaltHash);
+        }
     }
 }
