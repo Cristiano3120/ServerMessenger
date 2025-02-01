@@ -19,7 +19,7 @@ namespace Server_Messenger
 
         #region CreateAccount
 
-        public static async Task<(NpgsqlExceptionInfos error, string token)> CreateAccount(User user)
+        public static async Task<(NpgsqlExceptionInfos error, string token)> CreateAccountAsync(User user)
         {
             try
             {
@@ -30,7 +30,7 @@ namespace Server_Messenger
                 await conn.OpenAsync();
 
                 if (user.Id == -1)
-                    user.Id = GetHighestID();
+                    user.Id = await GetHighestIDAsync();
 
                 string token = GenerateToken(user);
 
@@ -51,9 +51,9 @@ namespace Server_Messenger
             }
             catch (NpgsqlException ex)
             {
-                NpgsqlExceptionInfos exception = await HandleNpgsqlException(ex);
+                NpgsqlExceptionInfos exception = await HandleNpgsqlExceptionAsync(ex);
                 if (exception.ColumnName == "id")
-                    await CreateAccount(user);
+                    await CreateAccountAsync(user);
 
                 return (exception, "");
             }
@@ -67,15 +67,15 @@ namespace Server_Messenger
             return Convert.ToBase64String(emailBytes) + hashedPassword;
         }
 
-        private static long GetHighestID()
+        private static async Task<long> GetHighestIDAsync()
         {
             try
             {
                 const string query = @"SELECT MAX(id) FROM users;";
                 using var conn = new NpgsqlConnection(_connectionString);
-                conn.Open();
+                await conn.OpenAsync();
                 using var cmd = new NpgsqlCommand(query, conn);
-                var result = cmd.ExecuteScalar();
+                var result = await cmd.ExecuteScalarAsync();
                 return result == DBNull.Value
                     ? 1
                     : Convert.ToInt64(result) + 1;
@@ -108,7 +108,7 @@ namespace Server_Messenger
             }
             catch (NpgsqlException ex)
             {
-                NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlException(ex);
+                NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlExceptionAsync(ex);
                 return (null, exceptionInfos);
             }
         }
@@ -130,7 +130,7 @@ namespace Server_Messenger
             }
             catch (NpgsqlException ex)
             {
-                NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlException(ex);
+                NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlExceptionAsync(ex);
                 return (null, exceptionInfos);
             }
         }
@@ -172,7 +172,7 @@ namespace Server_Messenger
             await cmd.ExecuteNonQueryAsync();
         }
 
-        private static async Task<NpgsqlExceptionInfos> HandleNpgsqlException(NpgsqlException ex)
+        private static async Task<NpgsqlExceptionInfos> HandleNpgsqlExceptionAsync(NpgsqlException ex)
         {
             Logger.LogError(ex);
             var errorCode = ex.SqlState;
@@ -180,7 +180,7 @@ namespace Server_Messenger
             switch (errorCode)
             {
                 case "08001" or "08006" or "08003":
-                    await Server.Shutdown();
+                    await Server.ShutdownAsync();
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.ConnectionError);
                 case "23505":
                     var message = ex.Message;

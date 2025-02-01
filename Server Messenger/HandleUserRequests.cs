@@ -7,7 +7,7 @@ namespace Server_Messenger
 {
     internal static class HandleUserRequests
     {
-        public static async Task ReceivedAes(WebSocket client, JsonElement message)
+        public static async Task ReceivedAesAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received Aes");
             Server.ClientsData.TryAdd(client, new UserData()
@@ -24,18 +24,18 @@ namespace Server_Messenger
 
         #region CreateAcc
 
-        public static async Task CreateAccount(WebSocket client, JsonElement message)
+        public static async Task CreateAccountAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received a request to create an account");
             User? user = JsonSerializer.Deserialize<User>(message, Server.JsonSerializerOptions);
 
             if (user == null)
             {
-                await Server.ClosingConn(client);
+                await Server.ClosingConnAsync(client);
                 return;
             }
 
-            (NpgsqlExceptionInfos npgsqlException, string token) = await PersonalDataDatabase.CreateAccount(user);
+            (NpgsqlExceptionInfos npgsqlException, string token) = await PersonalDataDatabase.CreateAccountAsync(user);
 
             if (npgsqlException.Exception == NpgsqlExceptions.None)
             {
@@ -49,7 +49,7 @@ namespace Server_Messenger
                 };
 
                 Server.VerificationCodes.TryAdd(client, verificationInfo);
-                Server.SendEmail(user, verificationCode);
+                await Server.SendEmail(user, verificationCode);
             }
 
             var payload = new
@@ -59,12 +59,12 @@ namespace Server_Messenger
                 token,
                 user,       
             };
-            await AnswerClient(client, npgsqlException, payload, user);
+            await AnswerClientAsync(client, npgsqlException, payload, user);
         }
 
         #endregion
 
-        public static async Task RequestToLogin(WebSocket client, JsonElement message)
+        public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received an login request");
             string email = message.GetProperty("email").GetString()!;
@@ -78,7 +78,7 @@ namespace Server_Messenger
                 npgsqlException,
                 user,
             };
-            await AnswerClient(client, npgsqlException, payload, user);
+            await AnswerClientAsync(client, npgsqlException, payload, user);
 
             if (user != null && user.FaEnabled)
             {
@@ -89,12 +89,12 @@ namespace Server_Messenger
                     VerificationAttempts = 0,
                     Email = user.Email,
                 };
-                Server.SendEmail(user, verificationCode);
+                await Server.SendEmail(user, verificationCode);
                 Server.VerificationCodes.TryAdd(client, verificationInfos);
             }
         }
 
-        public static async Task RequestToAutoLogin(WebSocket client, JsonElement message)
+        public static async Task RequestToAutoLoginAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received an auto-login request");
             string token = message.GetProperty("token").GetString()!;
@@ -107,10 +107,10 @@ namespace Server_Messenger
                 npgsqlException,
                 user,
             };
-            await AnswerClient(client, npgsqlException, payload, user);
+            await AnswerClientAsync(client, npgsqlException, payload, user);
         }
 
-        public static async Task RequestToVerify(WebSocket client, JsonElement message)
+        public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)
         {
             Server.VerificationCodes.TryGetValue(client, out VerificationInfos? verificationInfos);
             int userVerificationCode = message.GetProperty("verificationCode").GetInt32();
@@ -144,7 +144,7 @@ namespace Server_Messenger
             await Server.SendPayloadAsync(client, payload);
         }
 
-        private static async Task AnswerClient(WebSocket client, NpgsqlExceptionInfos npgsqlException, object payload, User? user)
+        private static async Task AnswerClientAsync(WebSocket client, NpgsqlExceptionInfos npgsqlException, object payload, User? user)
         {
             if (npgsqlException.Exception == NpgsqlExceptions.None && user != null)
             {

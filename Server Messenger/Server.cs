@@ -15,7 +15,7 @@ namespace Server_Messenger
         public static ConcurrentDictionary<WebSocket, VerificationInfos> VerificationCodes { get; private set; } = new();
         public static JsonSerializerOptions JsonSerializerOptions { get; private set; } = new();
         public static JsonElement Config { get; private set; } = JsonExtensions.ReadConfig();
-        private static readonly string _emailPassword = ReadEmailPassword();
+        //private static readonly string _emailPassword = ReadEmailPassword();
 
         public static void Start()
         {
@@ -31,11 +31,11 @@ namespace Server_Messenger
             JsonSerializerOptions.Converters.Add(new JsonConverters.UserConverter());
             JsonSerializerOptions.WriteIndented = true;
 
-            Task.Run(ListenForConnections);
+            Task.Run(ListenForConnectionsAsync);
             Security.Init();
         }
 
-        public static async Task Shutdown()
+        public static async Task ShutdownAsync()
         {
             Logger.LogWarning("Server is shutting down!");
             foreach (WebSocket client in _clients.Values)
@@ -46,7 +46,7 @@ namespace Server_Messenger
 
         #region Handle clients
 
-        private static async Task ListenForConnections()
+        private static async Task ListenForConnectionsAsync()
         {
             HttpListener listener = new();
             listener.Prefixes.Add(GetUri(true));
@@ -61,13 +61,13 @@ namespace Server_Messenger
                     HttpListenerWebSocketContext webSocketContext = await context.AcceptWebSocketAsync(null);
                     WebSocket client = webSocketContext.WebSocket;
 
-                    await Security.SendClientRSA(client);
-                    _ = HandleClient(client);
+                    await Security.SendClientRSAAsync(client);
+                    _ = HandleClientAsync(client);
                 }
             }
         }
 
-        private static async Task HandleClient(WebSocket client)
+        private static async Task HandleClientAsync(WebSocket client)
         {
             var buffer = new byte[65536];
             var ms = new MemoryStream();
@@ -99,7 +99,7 @@ namespace Server_Messenger
                     Logger.LogInformation(ConsoleColor.Green, $"[RECEIVED]: {completeMessage}");
                     ClearMs(ms);
 
-                    await HandleReceivedMessage(client, JsonDocument.Parse(completeMessage).RootElement);
+                    await HandleReceivedMessageAsync(client, JsonDocument.Parse(completeMessage).RootElement);
                 }
                 catch (Exception ex)
                 {
@@ -111,10 +111,10 @@ namespace Server_Messenger
                     break;
                 }
             }
-            await ClosingConn(client);
+            await ClosingConnAsync(client);
         }
 
-        private static async Task HandleReceivedMessage(WebSocket client, JsonElement message)
+        private static async Task HandleReceivedMessageAsync(WebSocket client, JsonElement message)
         {
             OpCode code = message.GetProperty("code").GetOpCode();
             try
@@ -122,20 +122,20 @@ namespace Server_Messenger
                 switch (code)
                 {
                     case OpCode.ReceiveAes:
-                        await HandleUserRequests.ReceivedAes(client, message);
+                        await HandleUserRequests.ReceivedAesAsync(client, message);
                         break;
                     case OpCode.RequestToCreateAccount:
                         Logger.LogInformation("Received RequestToCreateAccount");
-                        await HandleUserRequests.CreateAccount(client, message);
+                        await HandleUserRequests.CreateAccountAsync(client, message);
                         break;
                     case OpCode.RequestLogin:
-                        await HandleUserRequests.RequestToLogin(client, message);
+                        await HandleUserRequests.RequestToLoginAsync(client, message);
                         break;
                     case OpCode.RequestToVerifiy:
-                        await HandleUserRequests.RequestToVerify(client, message);
+                        await HandleUserRequests.RequestToVerifyAsync(client, message);
                         break;
                     case OpCode.AutoLoginRequest:
-                        await HandleUserRequests.RequestToAutoLogin(client, message);
+                        await HandleUserRequests.RequestToAutoLoginAsync(client, message);
                         break;
                 }
             }
@@ -163,7 +163,7 @@ namespace Server_Messenger
             ms.SetLength(0);
         }
 
-        public static async Task ClosingConn(WebSocket client)
+        public static async Task ClosingConnAsync(WebSocket client)
         {
             Logger.LogInformation("Cleaning up the connection");
 
@@ -238,12 +238,13 @@ namespace Server_Messenger
             return Config.GetProperty("ServerUri").GetString() ?? throw new JsonException("The server uri couldn´t be accessed");
         }
 
-        private static string ReadEmailPassword() 
-            => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
+        //deactivated for safety reasons but it works
+        //private static string ReadEmailPassword() 
+        //    => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
         
         #endregion
 
-        public static async void SendEmail(User user, int verificationCode)
+        public static async Task SendEmail(User user, int verificationCode)
         {
             Logger.LogInformation($"Sending an email. Code: {verificationCode}");
             //var fromAddress = "ccardoso7002@gmail.com";

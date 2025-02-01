@@ -7,7 +7,6 @@ namespace Server_Messenger
 {
     internal static class Security
     {
-        private const string _pathToAesData = @"C:\Users\Crist\source\repos\Server Messenger\Server Messenger\NeededFiles\AESData.txt";
         private static RSAParameters _publicKey;
         private static Aes? _databaseAes;
         private static RSA? _rsa;
@@ -27,9 +26,8 @@ namespace Server_Messenger
 
         private static void InitDatabaseAes()
         {
-            using var streamReader = new StreamReader(_pathToAesData);
-            var password = streamReader.ReadLine()!;
-            var salt = Encoding.UTF8.GetBytes(streamReader.ReadLine()!);
+            var password = Server.Config.GetProperty("DatabaseAes").GetProperty("password").GetString()!;
+            var salt = Encoding.UTF8.GetBytes(Server.Config.GetProperty("DatabaseAes").GetProperty("salt").GetString()!);
 
             using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 500000, HashAlgorithmName.SHA256);
             _databaseAes = Aes.Create();
@@ -39,7 +37,7 @@ namespace Server_Messenger
 
         #endregion
 
-        public static async Task SendClientRSA(WebSocket client)
+        public static async Task SendClientRSAAsync(WebSocket client)
         {
             var payload = new
             {
