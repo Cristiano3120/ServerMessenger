@@ -5,7 +5,7 @@ namespace Server_Messenger.Json
 {
     internal static class JsonExtensions
     {
-        private const string _pathToConfig = "C:\\Users\\Crist\\source\\repos\\Server Messenger\\Server Messenger\\Settings\\appsettings.json";
+        private static readonly string _pathToConfig = Server.GetDynamicPath(@"Settings\appsettings.json");
 
         #region GetExtensions
 

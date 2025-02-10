@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.Versioning;
 
 namespace Server_Messenger
 {
@@ -241,7 +242,7 @@ namespace Server_Messenger
         //deactivated for safety reasons but it works
         //private static string ReadEmailPassword() 
         //    => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
-        
+
         #endregion
 
         public static async Task SendEmail(User user, int verificationCode)
@@ -261,6 +262,31 @@ namespace Server_Messenger
             //    EnableSsl = true
             //};
             //await smtpClient.SendMailAsync(mail);
+        }
+
+        /// <summary>
+        /// Resolves a relative path by dynamically adjusting the base directory of the project.
+        /// It removes the portion of the base directory up to and including the specified segment 
+        /// ("ServerMessenger/ServerMessenger/") and combines the remaining path with the given relative path.
+        /// </summary>
+        /// <param name="relativePath"> 
+        /// Example: If you want to get the file "appsettings.json" that is in directory "Settings" you would give this as an param:
+        /// the relativePath = "Settings/appsettings.json" </param>
+        /// <returns>A fully resolved path based on the project's base directory and the given relative path.</returns>
+        public static string GetDynamicPath(string relativePath)
+        {
+            var projectBasePath = AppContext.BaseDirectory;
+
+            var searchPattern = "ServerMessenger" + Path.DirectorySeparatorChar + "Server Messenger" + Path.DirectorySeparatorChar;
+            var indexToRemove = projectBasePath.IndexOf(searchPattern, StringComparison.Ordinal);
+
+            if (indexToRemove == -1)
+            {
+                throw new Exception("Implementation is wrong!");
+            }
+
+            projectBasePath = projectBasePath[..(indexToRemove + searchPattern.Length)];
+            return Path.Combine(projectBasePath, relativePath);
         }
     }
 }
