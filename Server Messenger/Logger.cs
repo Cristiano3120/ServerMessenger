@@ -84,6 +84,9 @@ namespace Server_Messenger
             }
 
             Log(ConsoleColor.Red, $"ERROR: {ex.Message}");
+
+            if (ex.InnerException != null)
+                LogError(ex.InnerException);
         }
 
         /// <summary>
