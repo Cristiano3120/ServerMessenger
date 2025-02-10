@@ -1,5 +1,4 @@
-﻿using Npgsql;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Server_Messenger

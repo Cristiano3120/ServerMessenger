@@ -1,7 +1,6 @@
 ﻿using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text.Json;
-using Npgsql;
 
 namespace Server_Messenger
 {

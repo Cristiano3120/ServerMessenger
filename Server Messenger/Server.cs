@@ -104,10 +104,7 @@ namespace Server_Messenger
                 catch (Exception ex)
                 {
                     Logger.LogError(ex);
-                    var cts = new CancellationTokenSource();
-                    cts.CancelAfter(TimeSpan.FromSeconds(10));
-                    await client.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, null, cts.Token);
-                    cts.Dispose();
+                    await client.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, null, CancellationToken.None);
                     break;
                 }
             }
