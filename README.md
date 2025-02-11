@@ -41,11 +41,50 @@ This is the server part of the messenger that I'm coding in my free time. If you
 ```cs
 public class ShowCasingClass
 {
-    // For private fields (If you need the field to be public, make it a property)
+    // For private fields (use _ prefix)
     private readonly int _thisIsAField;
 
-    // For public properties and constants
+    // Public property (auto-implemented)
     public int ThisIsAProperty { get; set; }
+
+    // Public field (only do this when you want to use readonly otherwise use a property)
+    public readonly string ThisIsAReadonlyField;
+
+    // Constants (Use constants to avoid magic numbers)
+    public const byte ThisIsAConst = 3;
+
+    // You can also use SHOUTING_SNAKE_CASE for things like Windows api values like here:
+    private const int WM_SYSCOMMAND = 0x112;
+
+    // Example for a magic number which should be avoided (in this case it is avoided with a param but you could also do this with a const):
+    static Logger()
+    {
+        AllocConsole();
+        _pathToLogFile = MaintainLoggingSystem(maxAmmountLoggingFiles: 5); // here I used a param to avoid the magic number
+    }
+
+    private static string MaintainLoggingSystem(int maxAmountLoggingFiles)
+    {
+        string pathToLoggingDic = Client.GetDynamicPath(@"Logging/");
+        string[] files = Directory.GetFiles(pathToLoggingDic, "*.md");
+
+        if (files.Length >= maxAmountLoggingFiles)
+        {
+            files = [.. files.OrderBy(File.GetCreationTime)];
+            // +1 to make room for a new File
+            int filesToRemove = files.Length - maxAmmountLoggingFiles + 1;
+
+            for (int i = 0; i < filesToRemove; i++)
+            {
+                File.Delete(files[i]);
+            }
+        }
+
+        var timestamp = DateTime.Now.ToString("dd-MM-yyyy/HH-mm-ss");
+        var pathToNewFile = Client.GetDynamicPath($"Logging/{timestamp}.md");
+        File.Create(pathToNewFile).Close();
+        return pathToNewFile;
+    }
 
     // For methods
     public void ThisIsAMethod<T>(int param)
@@ -53,7 +92,31 @@ public class ShowCasingClass
         // For local variables (ONLY USE 'var' WHEN THE TYPE IS APPARENT!)
         var thisIsALocalVar = "";
 
-        // For instantiating
-        ShowCasingClass show = new();
+        // Wrong(because what the method returns is not apparent):
+        var thisIsAReturnVar = DoSomething();
+
+        // Right:
+        byte[] thisIsAReturnVar2 = DoSomething();
+        var streamWriter = new StreamWriter("");
+        var image = Image.FromFile("");
+        var byteArr = ConvertToByteArr();
+    }
+
+    //Always use the prefix async if the method is asynchronous
+    public async Task GetInfosFromTheDatabaseAsnyc()
+    {
+        await DoSomethingAsync();
+    }
+
+    //This is a example for a database request. Always make the query constant and work with ASYNC
+    public static async Task RemoveUserAsync(string email)
+    {
+        const string query = "DELETE FROM users WHERE email = @email";
+        var npgsqlConnection = new NpgsqlConnection(_connectionString);
+        await npgsqlConnection.OpenAsync();
+
+        var cmd = new NpgsqlCommand(query, npgsqlConnection);
+        cmd.Parameters.AddWithValue("@email", Security.EncryptAesDatabase<string, string>(email));
+        await cmd.ExecuteNonQueryAsync();
     }
 }
