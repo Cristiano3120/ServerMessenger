@@ -14,7 +14,7 @@ This is the server part of the messenger that I'm coding in my free time. If you
 
 5. **Select the file** `ServerMessenger/ServerMessenger/Personal_Data_Database_Export.tar`
 
-6. **Open the project** in your preferred code editor and open the developer console (for Visual Studio: right-click on `Server Messenger.csproj` -> "Open in Terminal"). If you'd rather use the Windows Command Prompt search for "cmd" in your Windows search bar and open it.
+6. **Open the project** in your preferred code editor and open the developer console (for Visual Studio: right-click on `Server Messenger.csproj` -> `Open in Terminal`). If you'd rather use the Windows console search for "cmd" in your Windows search bar and open it.
 
 7. **[Step for Windows Terminal only]** In the Windows CMD navigate to your project folder by typing `cd {path to your project}` (for example: `cd "C:\Users\Praktikum\source\repos\Cristiano3120\ServerMessenger\Server Messenger\"`). Be sure to use quotes("") if your path contains whitespaces like in this example.
 
