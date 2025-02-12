@@ -30,6 +30,7 @@ namespace Server_Messenger
             };
 
             JsonSerializerOptions.Converters.Add(new JsonConverters.UserConverter());
+            JsonSerializerOptions.Converters.Add(new JsonConverters.RelationshipConverter());
             JsonSerializerOptions.WriteIndented = true;
 
             Task.Run(ListenForConnectionsAsync);
@@ -134,6 +135,9 @@ namespace Server_Messenger
                         break;
                     case OpCode.AutoLoginRequest:
                         await HandleUserRequests.RequestToAutoLoginAsync(client, message);
+                        break;
+                    case OpCode.UpdateRelationship:
+                        await HandleUserRequests.HandleRelationshipUpdateAsync(client, message);
                         break;
                 }
             }

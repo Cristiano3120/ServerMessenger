@@ -63,6 +63,37 @@ namespace Server_Messenger
 
         #endregion
 
+        public static async Task HandleRelationshipUpdateAsync(WebSocket client, JsonElement message)
+        {
+            JsonElement relationshipUpdateProperty = message.GetProperty("relationshipUpdate");
+
+            Relationshipstate relationshipstate = relationshipUpdateProperty.GetProperty("RequestedRelationshipstate").GetRelationshipstate();
+            Relationship relationship = JsonSerializer.Deserialize<Relationship>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
+            User user = JsonSerializer.Deserialize<User>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
+
+            RelationshipUpdate relationshipUpdate = new()
+            {
+                User = user,
+                Relationship = relationship,
+                RequestedRelationshipstate = relationshipstate
+            };
+
+            if (user == null || relationship == null)
+            {
+                await Server.ClosingConnAsync(client);
+                return;
+            }
+
+            NpgsqlExceptionInfos npgsqlException = await PersonalDataDatabase.UpdateRelationshipStateAsync(relationshipUpdate);
+            var payload = new
+            {
+                code = OpCode.AnswerToRequestedRelationshipUpdate,
+                npgsqlException
+            };
+
+            await Server.SendPayloadAsync(client, payload);
+        }
+
         public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received an login request");

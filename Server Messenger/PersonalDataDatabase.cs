@@ -17,6 +17,8 @@ namespace Server_Messenger
             return Server.Config.GetProperty("ConnectionStrings").GetProperty("PersonalDataDatabase").GetString()!;
         }
 
+        #region Pre Login
+
         #region CreateAccount
 
         public static async Task<(NpgsqlExceptionInfos error, string token)> CreateAccountAsync(User user)
@@ -161,6 +163,63 @@ namespace Server_Messenger
 
         #endregion
 
+        #endregion
+
+        public static async Task<NpgsqlExceptionInfos> UpdateRelationshipStateAsync(RelationshipUpdate relationshipUpdate)
+        {
+            switch (relationshipUpdate.RequestedRelationshipstate)
+            {
+                case Relationshipstate.Friend or Relationshipstate.Pending:
+                    return await UpdateToFriendsOrPendingAsync(relationshipUpdate);
+                case Relationshipstate.Blocked:
+                    throw new NotImplementedException();
+                default:
+                    return new NpgsqlExceptionInfos();
+            }
+        }
+
+        private static async Task<NpgsqlExceptionInfos> UpdateToFriendsOrPendingAsync(RelationshipUpdate relationshipUpdate)
+        {
+            try
+            {
+                long affectedUserID = relationshipUpdate.Relationship.Id == -1
+                    ? await GetIDByName(relationshipUpdate.Relationship.Username, relationshipUpdate.Relationship.HashTag)
+                    : relationshipUpdate.Relationship.Id;
+
+                if (affectedUserID == -1)
+                {
+                    return new NpgsqlExceptionInfos(NpgsqlExceptions.UserNotFound);
+                }
+
+                (long senderID, long receiverID) = relationshipUpdate.RequestedRelationshipstate == Relationshipstate.Pending
+                    ? (relationshipUpdate.User.Id, affectedUserID)
+                    : (affectedUserID, relationshipUpdate.User.Id);
+
+                string query = relationshipUpdate.RequestedRelationshipstate == Relationshipstate.Pending
+                    ? "INSERT INTO users (sender_id, receiver_id, relationship_state) VALUES (@sender, @receiver, @state)"
+                    : "UPDATE users SET relationship_state = @state WHERE sender_id = @sender AND receiver_id = @receiver";
+
+                await using var connection = new NpgsqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                await using var cmd = new NpgsqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@state", (short)relationshipUpdate.RequestedRelationshipstate);
+                cmd.Parameters.AddWithValue("@receiver", receiverID);
+                cmd.Parameters.AddWithValue("@sender", senderID);
+
+                int affectedRows = await cmd.ExecuteNonQueryAsync();
+
+                return affectedRows == 0
+                    ? new NpgsqlExceptionInfos(NpgsqlExceptions.UserNotFound)
+                    : new NpgsqlExceptionInfos();
+
+            }
+            catch (NpgsqlException ex)
+            {
+                return await HandleNpgsqlExceptionAsync(ex);
+            }
+        }
+
         public static async Task RemoveUserAsync(string email)
         {
             const string query = "DELETE FROM users WHERE email = @email";
@@ -170,6 +229,22 @@ namespace Server_Messenger
             var cmd = new NpgsqlCommand(query, npgsqlConnection);
             cmd.Parameters.AddWithValue("@email", Security.EncryptAesDatabase<string, string>(email));
             await cmd.ExecuteNonQueryAsync();
+        }
+
+        private static async Task<long> GetIDByName(string username, string hashTag)
+        {
+            const string query = "SELECT id FROM users WHERE username = @username AND hashtag = @hashTag";
+            NpgsqlConnection connection = new(_connectionString);
+            await connection.OpenAsync();
+
+            NpgsqlCommand cmd = new(query, connection);
+            cmd.Parameters.AddWithValue("@username", Security.EncryptAesDatabase<string, string>(username));
+            cmd.Parameters.AddWithValue("@hashTag", Security.EncryptAesDatabase<string, string>(hashTag));
+
+            NpgsqlDataReader reader = cmd.ExecuteReader();
+            return reader.HasRows
+                ? reader.GetInt64(0)
+                : -1;
         }
 
         private static async Task<NpgsqlExceptionInfos> HandleNpgsqlExceptionAsync(NpgsqlException ex)

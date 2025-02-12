@@ -13,5 +13,7 @@
         VerificationWentWrong = 8,
         AutoLoginRequest = 9,
         AutoLoginResponse = 10,
+        UpdateRelationship = 11,
+        AnswerToRequestedRelationshipUpdate = 12,
     }
 }

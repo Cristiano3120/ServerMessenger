@@ -31,6 +31,9 @@ namespace Server_Messenger.Json
             return aes;
         }
 
+        public static Relationshipstate GetRelationshipstate(this JsonElement property)
+            => (Relationshipstate)property.GetByte();
+
         #endregion
 
         #region ReadJson
