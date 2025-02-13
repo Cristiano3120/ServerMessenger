@@ -32,14 +32,14 @@ This is the server part of the messenger that I'm coding in my free time. If you
 
 - Please **follow** the naming conventions and style guidelines: 
 
-# **Naming Conventions for Fields, Properties and Constants**
+# **Naming Conventions for Fields, Properties, Constants**
 
 This part defines the rules for naming fields, properties, and constants.
 
-### Private Fields
+## 🔹 Private Fields
 
-- **Private fields** should use an underscore prefix (`_`), making them easily distinguishable from other variables.
-- **Use camelCase** for private fields.
+➡ **Private fields** should use an underscore prefix (`_`), making them easily distinguishable from other variables.
+➡ **Use camelCase** for private fields.
 
 **Example:**
 
@@ -47,10 +47,10 @@ This part defines the rules for naming fields, properties, and constants.
 private readonly int _thisIsAField;
 ```
 
-### Public Properties
+## 🔹 Public Properties
 
-- **Public properties** should use **PascalCase**.
-- **Auto-implemented properties** are recommended where possible.
+➡ **Public properties** should use **PascalCase**.
+➡ **Auto-implemented properties** are recommended where possible.
 
 **Example:**
 
@@ -58,9 +58,9 @@ private readonly int _thisIsAField;
 public int ThisIsAProperty { get; set; }
 ```
 
-### Public Readonly Fields
+## 🔹 Public Readonly Fields
 
-- Always use **PascalCase** for public readonly fields.
+➡ Always use **PascalCase** for public readonly fields.
 
 **Example:**
 
@@ -68,9 +68,9 @@ public int ThisIsAProperty { get; set; }
 public readonly string ThisIsAReadonlyField;
 ```
 
-### Constants
+## 🔹 Constants
 
-- **Constants** should be written in **UPPERCASE** to differentiate them from other variables, especially for values like magic numbers.
+➡ **Constants** should be written in **UPPERCASE** to differentiate them from other variables, especially for values like magic numbers.
 
 **Example:**
 
@@ -78,9 +78,9 @@ public readonly string ThisIsAReadonlyField;
 public const byte ThisIsAConst = 3;
 ```
 
-### Special Case for Windows API Values
+## 🔹 Special Case for Windows API Values
 
-- Use **SHOUTING_SNAKE_CASE** for **Windows API constants** or any value that is a part of an external standard.
+➡ Use **SHOUTING_SNAKE_CASE** for **Windows API constants** or any value that is a part of an external standard.
 
 **Example:**
 
