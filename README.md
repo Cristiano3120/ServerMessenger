@@ -262,8 +262,6 @@ yield return (nameof(User).ToCamelCase(), "Placeholder");
 
 [MIT License](LICENSE)
 
-MIT License
-
 Copyright (c) 2025 Cristiano Alejandro Cardoso Xavier
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
