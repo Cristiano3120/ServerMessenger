@@ -258,3 +258,6 @@ If needed, use a **custom method** like `ToCamelCase()` from the `StringExtensio
 ```cs
 yield return (nameof(User).ToCamelCase(), "Placeholder");
 ```
+## License
+
+[MIT License](LICENSE)
