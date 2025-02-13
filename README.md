@@ -8,7 +8,7 @@ This is the server part of the messenger that I'm coding in my free time. If you
 
 2. **Download PostgreSQL**.
 
-3.**Go to** your `windows search bar` and type in `cmd`. **Open it** and **type in** `dotnet tool install --global dotnet-ef`. Now just **press enter** and **wait** for it to finnish.
+3. **Go to** your `windows search bar` and type in `cmd`. **Open it** and **type in** `dotnet tool install --global dotnet-ef`. Now just **press enter** and **wait** for it to finnish.
 
 4. **Type in** `cd {path to your project}` (for example: `cd "C:\Users\Praktikum\source\repos\Cristiano3120\ServerMessenger\Server Messenger\"`). Be sure to use quotes("") if your path contains whitespaces like in this example.
 
@@ -16,7 +16,7 @@ This is the server part of the messenger that I'm coding in my free time. If you
 
 6. **Open the** `appsettings.json` file located in the `Settings` folder. Modify the settings according to your needs particularly the password for PostgreSQL that you used during installation. If necessary change the port (the port in the `settings.json` file is **5433**, but it might be **5432** or something like that for your database). You can check the port by **opening** `pgAdmin4`, **right-clicking on** `PostgreSQL 17`, **selecting** `Properties`, and **going to** the `Connection` tab where you’ll find the correct port and other connection details.
 
-7. The database should now be ready! **Now read the rules below**, then proceed with step 11.
+7. The database should now be ready! **Now read the rules below**, then proceed with step 8.
 
 8. **Go to** the [Client Messenger repository](https://github.com/Cristiano3120/ClientMessenger) now and follow the README there.
 
