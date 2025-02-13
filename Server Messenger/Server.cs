@@ -29,6 +29,7 @@ namespace Server_Messenger
                 args.SetObserved();
             };
 
+            JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             JsonSerializerOptions.Converters.Add(new JsonConverters.UserConverter());
             JsonSerializerOptions.Converters.Add(new JsonConverters.RelationshipConverter());
             JsonSerializerOptions.WriteIndented = true;
@@ -115,7 +116,7 @@ namespace Server_Messenger
 
         private static async Task HandleReceivedMessageAsync(WebSocket client, JsonElement message)
         {
-            OpCode code = message.GetProperty("code").GetOpCode();
+            OpCode code = message.GetOpCode();
             try
             {
                 switch (code)

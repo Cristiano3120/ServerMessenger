@@ -42,7 +42,7 @@ namespace Server_Messenger
         {
             var payload = new
             {
-                code = OpCode.SendRSA,
+                opCode = OpCode.SendRSA,
                 modulus = Convert.ToBase64String(_publicKey.Modulus!),
                 exponent = Convert.ToBase64String(_publicKey.Exponent!),
             };

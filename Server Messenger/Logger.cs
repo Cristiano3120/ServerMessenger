@@ -6,7 +6,7 @@ namespace Server_Messenger
 {
     public static partial class Logger
     {
-        [GeneratedRegex("(\"ProfilePicture\": \")[^\"]*(\")")]
+        [GeneratedRegex("(\"profilePicture\": \")[^\"]*(\")")]
         private static partial Regex FilterProfilPicRegex();
 
         #region LogInformation

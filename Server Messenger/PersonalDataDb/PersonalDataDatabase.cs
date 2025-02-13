@@ -150,6 +150,9 @@ namespace Server_Messenger.PersonalDataDb
                 if (affectedUserID == -1)
                     affectedUserID = await GetIDByNameAsync(affectedUser.Username, affectedUser.HashTag);
 
+                if (affectedUserID == -1)
+                    return new NpgsqlExceptionInfos(NpgsqlExceptions.UserNotFound);
+
                 switch (relationshipUpdate.RequestedRelationshipstate)
                 {
                     case Relationshipstate.Pending:

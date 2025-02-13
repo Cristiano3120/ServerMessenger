@@ -16,12 +16,10 @@ namespace Server_Messenger
 
             var payload = new
             {
-                code = OpCode.ReadyToReceive,
+                opCode = OpCode.ReadyToReceive,
             };
             await Server.SendPayloadAsync(client, payload);
         }
-
-        #region CreateAcc
 
         public static async Task CreateAccountAsync(WebSocket client, JsonElement message)
         {
@@ -35,9 +33,9 @@ namespace Server_Messenger
             }
 
             PersonalDataDatabase database = new();
-            NpgsqlExceptionInfos npgsqlException = await database.CreateAccountAsync(user);
+            NpgsqlExceptionInfos npgsqlExceptionInfos = await database.CreateAccountAsync(user);
 
-            if (npgsqlException.Exception == NpgsqlExceptions.None)
+            if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None)
             {
                 int verificationCode = RandomNumberGenerator.GetInt32(10000000, 99999999);
 
@@ -54,20 +52,18 @@ namespace Server_Messenger
 
             var payload = new
             {
-                code = OpCode.AnswerToCreateAccount,
-                npgsqlException,
+                opCode = OpCode.AnswerToCreateAccount,
+                npgsqlExceptionInfos,
                 user,       
             };
-            await AnswerClientAsync(client, npgsqlException, payload, user);
+            await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
         }
-
-        #endregion
 
         public static async Task HandleRelationshipUpdateAsync(WebSocket client, JsonElement message)
         {
             JsonElement relationshipUpdateProperty = message.GetProperty("relationshipUpdate");
 
-            Relationshipstate relationshipstate = relationshipUpdateProperty.GetProperty("RequestedRelationshipstate").GetRelationshipstate();
+            Relationshipstate relationshipstate = relationshipUpdateProperty.GetProperty("requestedRelationshipstate").GetRelationshipstate();
             Relationship relationship = JsonSerializer.Deserialize<Relationship>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
             User user = JsonSerializer.Deserialize<User>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
 
@@ -85,11 +81,11 @@ namespace Server_Messenger
             }
 
             PersonalDataDatabase database = new();
-            NpgsqlExceptionInfos npgsqlException = await database.UpdateRelationshipAsync(relationshipUpdate);
+            NpgsqlExceptionInfos npgsqlExceptionInfos = await database.UpdateRelationshipAsync(relationshipUpdate);
             var payload = new
             {
-                code = OpCode.AnswerToRequestedRelationshipUpdate,
-                npgsqlException
+                opCode = OpCode.AnswerToRequestedRelationshipUpdate,
+                npgsqlExceptionInfos
             };
 
             await Server.SendPayloadAsync(client, payload);
@@ -103,15 +99,15 @@ namespace Server_Messenger
             bool stayLoggedIn = message.GetProperty("stayLoggedIn").GetBoolean();
 
             PersonalDataDatabase database = new();
-            (User? user, NpgsqlExceptionInfos npgsqlException) = await database.CheckLoginDataAsync(email, password, stayLoggedIn);
+            (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = await database.CheckLoginDataAsync(email, password, stayLoggedIn);
 
             var payload = new
             {
-                code = OpCode.AnswerToLogin,
-                npgsqlException,
+                opCode = OpCode.AnswerToLogin,
+                npgsqlExceptionInfos,
                 user,
             };
-            await AnswerClientAsync(client, npgsqlException, payload, user);
+            await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
 
             if (user != null && user.FaEnabled)
             {
@@ -133,15 +129,15 @@ namespace Server_Messenger
             string token = message.GetProperty("token").GetString()!;
 
             PersonalDataDatabase database = new();
-            (User? user, NpgsqlExceptionInfos npgsqlException) = await database.CheckLoginDataAsync(token);
+            (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = await database.CheckLoginDataAsync(token);
 
             var payload = new
             {
-                code = OpCode.AutoLoginResponse,
-                npgsqlException,
+                opCode = OpCode.AutoLoginResponse,
+                npgsqlExceptionInfos,
                 user,
             };
-            await AnswerClientAsync(client, npgsqlException, payload, user);
+            await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
         }
 
         public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)
@@ -154,7 +150,7 @@ namespace Server_Messenger
             {
                 payload = new
                 {
-                    code = OpCode.VerificationWentWrong,
+                    opCode = OpCode.VerificationWentWrong,
                 };
                 await Server.SendPayloadAsync(client, payload);
                 return;
@@ -172,15 +168,15 @@ namespace Server_Messenger
 
             payload = new
             {
-                code = OpCode.RequestToVerifiy,
+                opCode = OpCode.RequestToVerifiy,
                 success,
             };
             await Server.SendPayloadAsync(client, payload);
         }
 
-        private static async Task AnswerClientAsync(WebSocket client, NpgsqlExceptionInfos npgsqlException, object payload, User? user)
+        private static async Task AnswerClientAsync(WebSocket client, NpgsqlExceptionInfos npgsqlExceptionInfos, object payload, User? user)
         {
-            if (npgsqlException.Exception == NpgsqlExceptions.None && user != null)
+            if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None && user != null)
             {
                 Server.ClientsData.TryGetValue(client, out UserData? userData);
 

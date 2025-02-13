@@ -18,16 +18,16 @@ namespace Server_Messenger
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
-            yield return (nameof(Username), Username);
-            yield return (nameof(HashTag), HashTag);
-            yield return (nameof(Email), Email);
-            yield return (nameof(Password), Password);
-            yield return (nameof(Biography), Biography);
-            yield return (nameof(Id), Id.ToString());
-            yield return (nameof(Birthday), Birthday?.ToString(new CultureInfo("de-DE")) ?? "");
-            yield return (nameof(ProfilePicture), Convert.ToBase64String(ProfilePicture));
-            yield return (nameof(FaEnabled), FaEnabled.ToString());
-            yield return (nameof(Token), Token);
+            yield return (nameof(Username).ToCamelCase(), Username);
+            yield return (nameof(HashTag).ToCamelCase(), HashTag);
+            yield return (nameof(Email).ToCamelCase(), Email);
+            yield return (nameof(Password).ToCamelCase(), Password);
+            yield return (nameof(Biography).ToCamelCase(), Biography);
+            yield return (nameof(Id).ToCamelCase(), Id.ToString());
+            yield return (nameof(Birthday).ToCamelCase(), Birthday?.ToString(new CultureInfo("de-DE")) ?? "");
+            yield return (nameof(ProfilePicture).ToCamelCase(), Convert.ToBase64String(ProfilePicture));
+            yield return (nameof(FaEnabled).ToCamelCase(), FaEnabled.ToString());
+            yield return (nameof(Token).ToCamelCase(), Token);
         }
 
         IEnumerator IEnumerable.GetEnumerator()

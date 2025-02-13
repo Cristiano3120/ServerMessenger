@@ -1,6 +1,3 @@
-using System;
-using Microsoft.EntityFrameworkCore;
-
 namespace Server_Messenger
 {
     public static class Program

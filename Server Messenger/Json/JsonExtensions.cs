@@ -10,13 +10,13 @@ namespace Server_Messenger.Json
         #region GetExtensions
 
         /// <summary>
-        /// Needs to be called on the <c>code</c> property of the <see cref="JsonElement"/>.
+        /// Needs to be called on the <c>root</c> of the <see cref="JsonElement"/>.
         /// Converts the data that is sent as an byte to the <see cref="OpCode"/> equivalent.
         /// </summary>
         /// <param name="property">The <c>code</c> as an <see cref="JsonElement"/> property</param>
         /// <returns><returns><c>Returns</c> the from the Client received OpCode</returns>
         public static OpCode GetOpCode(this JsonElement property)
-            => (OpCode)property.GetByte();
+            => (OpCode)property.GetProperty("opCode").GetByte();
 
         /// <summary>
         /// Extrcats the key and the iv from the <see cref="JsonElement"/>
@@ -31,6 +31,11 @@ namespace Server_Messenger.Json
             return aes;
         }
 
+        /// <summary>
+        /// Needs to be called on a <c>property</c> not on the root
+        /// </summary>
+        /// <param name="property"></param>
+        /// <returns></returns>
         public static Relationshipstate GetRelationshipstate(this JsonElement property)
             => (Relationshipstate)property.GetByte();
 

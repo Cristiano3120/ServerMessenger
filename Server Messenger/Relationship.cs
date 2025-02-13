@@ -5,7 +5,7 @@ namespace Server_Messenger
     public class Relationship: IEnumerable<(string name, string value)>
     {
         public long Id { get; init; } = -1;
-        public byte[] ProfilePicture { get; set; }
+        public byte[] ProfilePicture { get; set; } = [];
         public string Username { get; set; } = "";
         public string HashTag { get; set; } = "";
         public string Biography { get; set; } = "";
@@ -13,14 +13,12 @@ namespace Server_Messenger
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
-            yield return (nameof(Username), Username);
-            yield return (nameof(HashTag), HashTag);
-            yield return (nameof(Biography), Biography);
-            yield return (nameof(Id), Id.ToString());
-            if (ProfilePicture != null)
-            {
-                yield return (nameof(ProfilePicture), Convert.ToBase64String(ProfilePicture));
-            }
+            yield return (nameof(Username).ToCamelCase(), Username);
+            yield return (nameof(HashTag).ToCamelCase(), HashTag);
+            yield return (nameof(Biography).ToCamelCase(), Biography);
+            yield return (nameof(Id).ToCamelCase(), Id.ToString());
+            yield return (nameof(ProfilePicture).ToCamelCase(), Convert.ToBase64String(ProfilePicture));
+            yield return (nameof(Relationshipstate).ToCamelCase(), Relationshipstate.ToString());
         }
 
         IEnumerator IEnumerable.GetEnumerator()

@@ -15,22 +15,20 @@ namespace Server_Messenger.Json
                 {
                     JsonElement root = doc.RootElement;
 
-                    root = root.TryGetProperty("user", out JsonElement property)
-                        ? property
-                        : doc.RootElement.GetProperty("User");
+                    root = root.GetProperty("user");
 
                     return new User()
                     {
-                        ProfilePicture = root.GetProperty("ProfilePicture").GetBytesFromBase64(),
-                        Username = root.GetProperty("Username").GetString()!,
-                        HashTag = root.GetProperty("HashTag").GetString()!,
-                        Email = root.GetProperty("Email").GetString()!,
-                        Password = root.GetProperty("Password").GetString()!,
-                        Biography = root.GetProperty("Biography").GetString()!,
-                        Id = long.Parse(root.GetProperty("Id").GetString()!),
-                        Birthday = DateOnly.Parse(root.GetProperty("Birthday").GetString()!, new CultureInfo("de-DE")),
-                        FaEnabled = bool.Parse(root.GetProperty("FaEnabled").GetString()!),
-                        Token = root.GetProperty("Token").GetString()!,
+                        ProfilePicture = root.GetProperty("profilePicture").GetBytesFromBase64(),
+                        Username = root.GetProperty("username").GetString()!,
+                        HashTag = root.GetProperty("hashTag").GetString()!,
+                        Email = root.GetProperty("email").GetString()!,
+                        Password = root.GetProperty("password").GetString()!,
+                        Biography = root.GetProperty("biography").GetString()!,
+                        Id = long.Parse(root.GetProperty("id").GetString()!),
+                        Birthday = DateOnly.Parse(root.GetProperty("birthday").GetString()!, new CultureInfo("de-DE")),
+                        FaEnabled = bool.Parse(root.GetProperty("faEnabled").GetString()!),
+                        Token = root.GetProperty("token").GetString()!,
                     };
                 }
             }
@@ -70,26 +68,20 @@ namespace Server_Messenger.Json
                 {
                     JsonElement root = doc.RootElement;
 
-                    root = root.TryGetProperty("relationship", out JsonElement rootProperty)
-                        ? rootProperty
-                        : doc.RootElement.GetProperty("Relationship");
+                    root = root.GetProperty("relationship");
 
                     byte[] profilPic = [];
-
-                    if (root.TryGetProperty("ProfilePicture", out JsonElement profilPicProperty))
-                    {
-                        profilPic = profilPicProperty.GetBytesFromBase64();
-                    }
 
                     return root.ValueKind == JsonValueKind.Null
                         ? null
                         : new Relationship()
                         {
-                            ProfilePicture = profilPic,
-                            Username = root.GetProperty("Username").GetString()!,
-                            HashTag = root.GetProperty("HashTag").GetString()!,
-                            Biography = root.GetProperty("Biography").GetString()!,
-                            Id = long.Parse(root.GetProperty("Id").GetString()!),
+                            ProfilePicture = root.GetProperty("profilePicture").GetBytesFromBase64(),
+                            Username = root.GetProperty("username").GetString()!,
+                            HashTag = root.GetProperty("hashTag").GetString()!,
+                            Biography = root.GetProperty("biography").GetString()!,
+                            Id = long.Parse(root.GetProperty("id").GetString()!),
+                            Relationshipstate = Enum.Parse<Relationshipstate>(root.GetProperty("relationshipstate").GetString()!),
                         };
                 }
             }
