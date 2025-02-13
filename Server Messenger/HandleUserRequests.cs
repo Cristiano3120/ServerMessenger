@@ -34,7 +34,8 @@ namespace Server_Messenger
                 return;
             }
 
-            (NpgsqlExceptionInfos npgsqlException, string token) = await PersonalDataDatabase.CreateAccountAsync(user);
+            PersonalDataDatabase database = new();
+            NpgsqlExceptionInfos npgsqlException = await database.CreateAccountAsync(user);
 
             if (npgsqlException.Exception == NpgsqlExceptions.None)
             {
@@ -55,7 +56,6 @@ namespace Server_Messenger
             {
                 code = OpCode.AnswerToCreateAccount,
                 npgsqlException,
-                token,
                 user,       
             };
             await AnswerClientAsync(client, npgsqlException, payload, user);
@@ -84,7 +84,8 @@ namespace Server_Messenger
                 return;
             }
 
-            NpgsqlExceptionInfos npgsqlException = await PersonalDataDatabase.UpdateRelationshipStateAsync(relationshipUpdate);
+            PersonalDataDatabase database = new();
+            NpgsqlExceptionInfos npgsqlException = await database.UpdateRelationshipAsync(relationshipUpdate);
             var payload = new
             {
                 code = OpCode.AnswerToRequestedRelationshipUpdate,
@@ -99,8 +100,10 @@ namespace Server_Messenger
             Logger.LogInformation("Received an login request");
             string email = message.GetProperty("email").GetString()!;
             string password = message.GetProperty("password").GetString()!;
+            bool stayLoggedIn = message.GetProperty("stayLoggedIn").GetBoolean();
 
-            (User? user, NpgsqlExceptionInfos npgsqlException) = await PersonalDataDatabase.CheckLoginDataAsync(email, password);
+            PersonalDataDatabase database = new();
+            (User? user, NpgsqlExceptionInfos npgsqlException) = await database.CheckLoginDataAsync(email, password, stayLoggedIn);
 
             var payload = new
             {
@@ -129,7 +132,8 @@ namespace Server_Messenger
             Logger.LogInformation("Received an auto-login request");
             string token = message.GetProperty("token").GetString()!;
 
-            (User? user, NpgsqlExceptionInfos npgsqlException) = await PersonalDataDatabase.CheckLoginDataAsync(token);
+            PersonalDataDatabase database = new();
+            (User? user, NpgsqlExceptionInfos npgsqlException) = await database.CheckLoginDataAsync(token);
 
             var payload = new
             {

@@ -1,13 +1,16 @@
+using System;
+using Microsoft.EntityFrameworkCore;
+
 namespace Server_Messenger
 {
     public static class Program
     {
         public static void Main(string[] args)
         {
-            var builder = Host.CreateApplicationBuilder(args);
+            HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
             builder.Services.AddHostedService<Worker>();
 
-            var host = builder.Build();
+            IHost host = builder.Build();
             host.Run();
         }
     }

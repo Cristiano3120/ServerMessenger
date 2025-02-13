@@ -8,12 +8,13 @@ namespace Server_Messenger
         public byte[] ProfilePicture { get; set; } = [];
         public string Username { get; set; } = "";
         public string HashTag { get; set; } = "";
-        public string Email { get; init; } = "";
-        public string Password { get; init; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
         public string Biography { get; set; } = "";
         public long Id { get; set; } = -1;
-        public DateOnly? Birthday { get; init; }
+        public DateOnly? Birthday { get; set; }
         public bool FaEnabled { get; set; }
+        public string Token { get; set; } = "";
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
@@ -26,6 +27,7 @@ namespace Server_Messenger
             yield return (nameof(Birthday), Birthday?.ToString(new CultureInfo("de-DE")) ?? "");
             yield return (nameof(ProfilePicture), Convert.ToBase64String(ProfilePicture));
             yield return (nameof(FaEnabled), FaEnabled.ToString());
+            yield return (nameof(Token), Token);
         }
 
         IEnumerator IEnumerable.GetEnumerator()

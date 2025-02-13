@@ -11,5 +11,6 @@
         AccCreationError = 3,
         WrongLoginData = 4,
         UserNotFound = 5,
+        TokenInvalid = 6,
     }
 }

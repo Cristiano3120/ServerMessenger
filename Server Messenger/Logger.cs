@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Npgsql;
 
 namespace Server_Messenger
 {
@@ -52,6 +53,11 @@ namespace Server_Messenger
                     LogError(innerEx);
                 }
                 return;
+            }
+
+            if (exception is NpgsqlException npgsqlException)
+            {
+                Log(ConsoleColor.Red, $"ERROR(SQLSTATE): {npgsqlException.SqlState}");
             }
 
             Exception ex = exception as Exception

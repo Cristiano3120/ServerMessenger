@@ -30,6 +30,7 @@ namespace Server_Messenger.Json
                         Id = long.Parse(root.GetProperty("Id").GetString()!),
                         Birthday = DateOnly.Parse(root.GetProperty("Birthday").GetString()!, new CultureInfo("de-DE")),
                         FaEnabled = bool.Parse(root.GetProperty("FaEnabled").GetString()!),
+                        Token = root.GetProperty("Token").GetString()!,
                     };
                 }
             }

@@ -173,7 +173,10 @@ namespace Server_Messenger
                 await client.CloseAsync(WebSocketCloseStatus.InternalServerError, "", CancellationToken.None);
 
             if (VerificationCodes.Remove(client, out VerificationInfos? verificationInfos))
-                await PersonalDataDatabase.RemoveUserAsync(verificationInfos.Email);
+            {
+                PersonalDataDatabase database = new();
+                await database.RemoveUserAsync(verificationInfos.Email);
+            }
 
             if (ClientsData.TryRemove(client, out UserData? userData))
                 _clients.TryRemove(userData.Id, out _);

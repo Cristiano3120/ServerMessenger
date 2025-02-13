@@ -1,4 +1,5 @@
 ﻿using System.Net.WebSockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using ZstdNet;
@@ -76,6 +77,22 @@ namespace Server_Messenger
             }
         }
 
+        public static User EncryptAesDatabase(User user)
+            => new()
+            {
+                Username = EncryptAesDatabase<string, string>(user.Username),
+                HashTag = EncryptAesDatabase<string, string>(user.HashTag),
+                Email = EncryptAesDatabase<string, string>(user.Email),
+                Password = EncryptAesDatabase<string, string>(user.Password),
+                Biography = EncryptAesDatabase<string, string>(user.Biography),
+                ProfilePicture = EncryptAesDatabase<byte[], byte[]>(user.ProfilePicture),
+                Token = EncryptAesDatabase<string, string>(user.Token),
+                Birthday = user.Birthday!.Value,
+                FaEnabled = user.FaEnabled,
+                Id = user.Id,
+            };
+
+
         public static byte[] EncryptAes(WebSocket client, byte[] dataToEncrypt)
         {
             if (dataToEncrypt.Length == 0)
@@ -143,6 +160,26 @@ namespace Server_Messenger
                 _ => throw new InvalidOperationException("TReturn has an invalid type. Needs to be of type byte[] or string."),
             };
         }
+
+        /// <summary>
+        /// Decrypts the user obj and removes sensible data from it
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        public static User DecryptAesDatabase(User user)
+            => new()
+            {
+                Username = DecryptAesDatabase<string, string>(user.Username),
+                HashTag = DecryptAesDatabase<string, string>(user.HashTag),
+                Email = DecryptAesDatabase<string, string>(user.Email),
+                Password = "",
+                Biography = DecryptAesDatabase<string, string>(user.Biography),
+                ProfilePicture = DecryptAesDatabase<byte[], byte[]>(user.ProfilePicture),
+                Token = DecryptAesDatabase<string, string>(user.Token),
+                Birthday = user.Birthday!.Value,
+                FaEnabled = user.FaEnabled,
+                Id = user.Id,
+            };
 
         public static byte[] DecryptAes(WebSocket client, byte[] encryptedData)
         {
