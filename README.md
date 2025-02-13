@@ -253,7 +253,7 @@ public string Username { get; set; }
 
 ## 🔹 Convert to camelCase Manually with `ToCamelCase()`  
 
-If needed, use a **custom method** like `ToCamelCase()` to enforce camelCase manually:  
+If needed, use a **custom method** like `ToCamelCase()` from the `StringExtensions` class to enforce camelCase manually:  
 
 ```cs
 yield return (nameof(User).ToCamelCase(), "Placeholder");
