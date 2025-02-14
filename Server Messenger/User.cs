@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Globalization;
 
 namespace Server_Messenger
@@ -15,6 +16,16 @@ namespace Server_Messenger
         public DateOnly? Birthday { get; set; }
         public bool FaEnabled { get; set; }
         public string Token { get; set; } = "";
+
+        public static explicit operator Relationship(User user)
+            => new()
+            {
+                Username = user.Username,
+                HashTag = user.HashTag,
+                Id = user.Id,
+                Biography = user.Biography,
+                ProfilePicture = user.ProfilePicture,
+            };
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {

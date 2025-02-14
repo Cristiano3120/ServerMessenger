@@ -1,6 +1,7 @@
 ﻿using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Xml.Schema;
 
 namespace Server_Messenger
 {
@@ -81,11 +82,12 @@ namespace Server_Messenger
             }
 
             PersonalDataDatabase database = new();
-            NpgsqlExceptionInfos npgsqlExceptionInfos = await database.UpdateRelationshipAsync(relationshipUpdate);
+            (NpgsqlExceptionInfos npgsqlExceptionInfos, User? affectedUser) = await database.UpdateRelationshipAsync(relationshipUpdate);
             var payload = new
             {
                 opCode = OpCode.AnswerToRequestedRelationshipUpdate,
-                npgsqlExceptionInfos
+                npgsqlExceptionInfos,
+                affectedUser
             };
 
             await Server.SendPayloadAsync(client, payload);
@@ -109,7 +111,10 @@ namespace Server_Messenger
             };
             await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
 
-            if (user != null && user.FaEnabled)
+            if (user == null)
+                return;
+
+            if (user.FaEnabled)
             {
                 int verificationCode = RandomNumberGenerator.GetInt32(10000000, 99999999);
                 VerificationInfos verificationInfos = new()
@@ -120,7 +125,19 @@ namespace Server_Messenger
                 };
                 await Server.SendEmail(user, verificationCode);
                 Server.VerificationCodes.TryAdd(client, verificationInfos);
+                return;
             }
+
+            (NpgsqlExceptionInfos exceptionInfos, HashSet<Relationship>? relationships) = await database.GetUsersRelationships(user.Id);
+
+            var payload2 = new
+            {
+                opCode = OpCode.SendFriendships,
+                npgsqlExceptionInfos = exceptionInfos,
+                relationships,
+            };
+
+            await Server.SendPayloadAsync(client, payload2);
         }
 
         public static async Task RequestToAutoLoginAsync(WebSocket client, JsonElement message)
