@@ -65,29 +65,30 @@ namespace Server_Messenger
             JsonElement relationshipUpdateProperty = message.GetProperty("relationshipUpdate");
 
             Relationshipstate relationshipstate = relationshipUpdateProperty.GetProperty("requestedRelationshipstate").GetRelationshipstate();
-            Relationship relationship = JsonSerializer.Deserialize<Relationship>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
+            Relationship wantedRelationship = JsonSerializer.Deserialize<Relationship>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
             User user = JsonSerializer.Deserialize<User>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
 
             RelationshipUpdate relationshipUpdate = new()
             {
                 User = user,
-                Relationship = relationship,
+                Relationship = wantedRelationship,
                 RequestedRelationshipstate = relationshipstate
             };
 
-            if (user == null || relationship == null)
+            if (user == null || wantedRelationship == null)
             {
                 await Server.ClosingConnAsync(client);
                 return;
             }
 
             PersonalDataDatabase database = new();
-            (NpgsqlExceptionInfos npgsqlExceptionInfos, User? affectedUser) = await database.UpdateRelationshipAsync(relationshipUpdate);
+            (NpgsqlExceptionInfos npgsqlExceptionInfos, Relationship? relationship) = await database.UpdateRelationshipAsync(relationshipUpdate);
+
             var payload = new
             {
                 opCode = OpCode.AnswerToRequestedRelationshipUpdate,
                 npgsqlExceptionInfos,
-                affectedUser
+                relationship
             };
 
             await Server.SendPayloadAsync(client, payload);
@@ -128,16 +129,24 @@ namespace Server_Messenger
                 return;
             }
 
-            (NpgsqlExceptionInfos exceptionInfos, HashSet<Relationship>? relationships) = await database.GetUsersRelationships(user.Id);
+            await SendFriendships(client, database, user.Id);
+        }
 
-            var payload2 = new
+        private static async Task SendFriendships(WebSocket client, PersonalDataDatabase database, long userID)
+        {
+            (NpgsqlExceptionInfos npgsqlExceptionInfos, HashSet<Relationship>? relationships) = await database.GetUsersRelationships(userID);
+
+            if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.NoDataEntrys)
+                return;
+
+            var payload = new
             {
                 opCode = OpCode.SendFriendships,
-                npgsqlExceptionInfos = exceptionInfos,
+                npgsqlExceptionInfos,
                 relationships,
             };
 
-            await Server.SendPayloadAsync(client, payload2);
+            await Server.SendPayloadAsync(client, payload);
         }
 
         public static async Task RequestToAutoLoginAsync(WebSocket client, JsonElement message)
@@ -155,6 +164,9 @@ namespace Server_Messenger
                 user,
             };
             await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
+
+            if (user != null)
+                await SendFriendships(client, database, user.Id);
         }
 
         public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)

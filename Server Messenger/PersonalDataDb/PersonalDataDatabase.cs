@@ -138,47 +138,69 @@ namespace Server_Messenger.PersonalDataDb
 
         #region PastLogin
 
-        public async Task<(NpgsqlExceptionInfos, User?)> UpdateRelationshipAsync(RelationshipUpdate relationshipUpdate)
+        public async Task<(NpgsqlExceptionInfos, Relationship?)> UpdateRelationshipAsync(RelationshipUpdate relationshipUpdate)
         {
             try
             {
                 Relationship affectedRelationship = relationshipUpdate.Relationship;
-                User? affectedUser = await GetUser(affectedRelationship.Username, affectedRelationship.HashTag);
 
-                if (affectedUser == null)
+                User? affectedUser = await GetUser(affectedRelationship.Username, affectedRelationship.HashTag);
+                if (affectedUser is null)
                     return (new NpgsqlExceptionInfos(NpgsqlExceptions.UserNotFound), null);
 
+                var relationship = (Relationship)affectedUser;
+                relationship.Relationshipstate = relationshipUpdate.RequestedRelationshipstate;
+
                 long userID = relationshipUpdate.User.Id;
-                Relationships relationship;
+                long affectedID = affectedUser.Id;
 
                 switch (relationshipUpdate.RequestedRelationshipstate)
                 {
                     case Relationshipstate.Pending:
-                        relationship = new()
-                        {
-                            SenderId = userID,
-                            ReceiverId = affectedUser.Id,
-                            Relationshipstate = Relationshipstate.Pending
-                        };
+                        Relationships? dbRelationship = await _dbContext.Relationships
+                            .FirstOrDefaultAsync(r => r.SenderId == userID && r.ReceiverId == affectedID);
 
-                        await _dbContext.Relationships.AddAsync(relationship);
+                        if (dbRelationship is null)
+                        {
+                            dbRelationship = new()
+                            {
+                                SenderId = userID,
+                                ReceiverId = affectedID,
+                                Relationshipstate = Relationshipstate.Pending
+                            };
+                            await _dbContext.Relationships.AddAsync(dbRelationship);
+                        }
+                        else
+                        {
+                            dbRelationship.Relationshipstate = Relationshipstate.Pending;
+                        }
+
                         await _dbContext.SaveChangesAsync();
                         break;
+
                     case Relationshipstate.Friend or Relationshipstate.Blocked:
-                        await _dbContext.Relationships.Where(x => x.SenderId == affectedUser.Id && x.ReceiverId == userID || x.SenderId == userID && x.ReceiverId == affectedUser.Id)
+                        await _dbContext.Relationships
+                            .Where(x => (x.SenderId == userID && x.ReceiverId == affectedID) || (x.SenderId == affectedID && x.ReceiverId == userID))
                             .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.Relationshipstate, relationshipUpdate.RequestedRelationshipstate));
                         break;
+
                     default:
                         throw new NotImplementedException();
                 }
 
-                return (new NpgsqlExceptionInfos(), affectedUser);
+                return (new NpgsqlExceptionInfos(), relationship);
             }
             catch (NpgsqlException ex)
             {
                 return (await HandleNpgsqlExceptionAsync(ex), null);
             }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                return (new NpgsqlExceptionInfos(NpgsqlExceptions.UnknownError), null);
+            }
         }
+
 
         private async Task<User?> GetUser(string username, string hashTag)
         {
@@ -186,7 +208,9 @@ namespace Server_Messenger.PersonalDataDb
             {
                 string encryptedUsername = Security.EncryptAesDatabase<string, string>(username);
                 string encryptedHashTag = Security.EncryptAesDatabase<string, string>(hashTag);
-                return await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == encryptedUsername && x.HashTag == encryptedHashTag);
+
+                User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == encryptedUsername && x.HashTag == encryptedHashTag);
+                return Security.DecryptAesDatabase(user);
             }
             catch (NpgsqlException ex)
             {
@@ -209,7 +233,11 @@ namespace Server_Messenger.PersonalDataDb
                         ? relation.ReceiverId
                         : relation.SenderId;
 
-                    User searchedUser = await _dbContext.Users.FirstAsync(x => x.Id == searchedUserId);
+                    User? searchedUser = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == searchedUserId);
+
+                    if (searchedUser == null)
+                        return (new NpgsqlExceptionInfos(NpgsqlExceptions.NoDataEntrys), null);
+
                     var relationship = (Relationship)searchedUser;
                     relationship.Relationshipstate = relation.Relationshipstate;
 
@@ -222,6 +250,58 @@ namespace Server_Messenger.PersonalDataDb
             {
                 return (await HandleNpgsqlExceptionAsync(ex), null);
             }
+        }
+
+        #endregion
+
+        #region Tests
+
+        public async Task AddTestUsersToDb()
+        {
+            await RemoveTestUsers();
+
+            User user = new()
+            {
+                Biography = Security.EncryptAesDatabase<string, string>(""),
+                Birthday = DateOnly.MaxValue,
+                Email = Security.EncryptAesDatabase<string, string>("Cris@cris.com"),
+                Password = Security.EncryptAesDatabase<string, string>("CrisCris"),
+                FaEnabled = false,
+                HashTag = Security.EncryptAesDatabase<string, string>("#Cris"),
+                Username = Security.EncryptAesDatabase<string, string>("Cris"),
+                ProfilePicture = []
+            };
+
+            for (int i = 10; i < 15; i++)
+            {
+                string decryptedEmail = Security.DecryptAesDatabase<string, string>(user.Email);
+                string decryptedUsername = Security.DecryptAesDatabase<string, string>(user.Username);
+
+                string str = $"{i}";
+                user.Email = Security.EncryptAesDatabase<string, string>($"{decryptedEmail}{str}");
+                user.Username = Security.EncryptAesDatabase<string, string>($"{decryptedUsername}{str}");
+                user.Token = Security.EncryptAesDatabase<string,string>($"{i}");
+                user.Id = i;
+
+                await _dbContext.Users.AddAsync(user);
+                await _dbContext.SaveChangesAsync();
+
+                user.Email = Security.EncryptAesDatabase<string, string>(decryptedEmail);
+                user.Username = Security.EncryptAesDatabase<string, string>(decryptedUsername);
+            }
+        }
+
+
+        private async Task RemoveTestUsers()
+        {
+            IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Username != Security.EncryptAesDatabase<string, string>("Cris"));
+
+            foreach (User user in testUsers)
+            {
+                _dbContext.Users.Remove(user);
+            }
+
+            await _dbContext.SaveChangesAsync();
         }
 
         #endregion

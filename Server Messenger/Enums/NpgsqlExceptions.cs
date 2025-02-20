@@ -12,5 +12,6 @@
         WrongLoginData = 4,
         UserNotFound = 5,
         TokenInvalid = 6,
+        NoDataEntrys = 7,
     }
 }

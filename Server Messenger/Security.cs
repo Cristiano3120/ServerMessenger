@@ -166,8 +166,12 @@ namespace Server_Messenger
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        public static User DecryptAesDatabase(User user)
-            => new()
+        public static User? DecryptAesDatabase(User? user)
+        {
+            if (user == null)
+                return null;
+
+            return new()
             {
                 Username = DecryptAesDatabase<string, string>(user.Username),
                 HashTag = DecryptAesDatabase<string, string>(user.HashTag),
@@ -180,6 +184,7 @@ namespace Server_Messenger
                 FaEnabled = user.FaEnabled,
                 Id = user.Id,
             };
+        }
 
         public static byte[] DecryptAes(WebSocket client, byte[] encryptedData)
         {

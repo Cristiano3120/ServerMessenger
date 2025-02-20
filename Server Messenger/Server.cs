@@ -36,6 +36,9 @@ namespace Server_Messenger
 
             Task.Run(ListenForConnectionsAsync);
             Security.Init();
+
+            PersonalDataDatabase personalDataDatabase = new();
+            personalDataDatabase.AddTestUsersToDb();
         }
 
         public static async Task ShutdownAsync()
