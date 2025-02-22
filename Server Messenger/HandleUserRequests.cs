@@ -1,7 +1,6 @@
 ﻿using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Xml.Schema;
 
 namespace Server_Messenger
 {
@@ -10,10 +9,7 @@ namespace Server_Messenger
         public static async Task ReceivedAesAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received Aes");
-            Server.ClientsData.TryAdd(client, new UserData()
-            {
-                Aes = message.GetAes(),
-            });
+            Security.ClientAes.TryAdd(client, message.GetAes());
 
             var payload = new
             {
@@ -55,9 +51,10 @@ namespace Server_Messenger
             {
                 opCode = OpCode.AnswerToCreateAccount,
                 npgsqlExceptionInfos,
-                user,       
+                user,
             };
-            await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
+
+            await Server.SendPayloadAsync(client, payload);
         }
 
         public static async Task HandleRelationshipUpdateAsync(WebSocket client, JsonElement message)
@@ -94,28 +91,42 @@ namespace Server_Messenger
             await Server.SendPayloadAsync(client, payload);
         }
 
+        #region Login
+
         public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received an login request");
-            string email = message.GetProperty("email").GetString()!;
-            string password = message.GetProperty("password").GetString()!;
-            bool stayLoggedIn = message.GetProperty("stayLoggedIn").GetBoolean();
+            LoginRequest? loginRequest = JsonSerializer.Deserialize<LoginRequest>(message.GetProperty("loginRequest"), Server.JsonSerializerOptions);
 
+            if (loginRequest == null)
+            {
+                await Server.ClosingConnAsync(client);
+                return;
+            }
+
+            string token = loginRequest.Token;
             PersonalDataDatabase database = new();
-            (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = await database.CheckLoginDataAsync(email, password, stayLoggedIn);
+            (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = token == ""
+                ? await database.CheckLoginDataAsync(loginRequest)
+                : await database.CheckLoginDataAsync(token);
+
+            OpCode opCode = token == ""
+                ? OpCode.AnswerToLoginRequest
+                : OpCode.AnswerToAutoLoginRequest;
 
             var payload = new
             {
-                opCode = OpCode.AnswerToLogin,
+                opCode,
                 npgsqlExceptionInfos,
                 user,
             };
-            await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
+
+            await Server.SendPayloadAsync(client, payload);
 
             if (user == null)
                 return;
 
-            if (user.FaEnabled)
+            if (loginRequest.Token == "" && user.FaEnabled)
             {
                 int verificationCode = RandomNumberGenerator.GetInt32(10000000, 99999999);
                 VerificationInfos verificationInfos = new()
@@ -129,45 +140,27 @@ namespace Server_Messenger
                 return;
             }
 
-            await SendFriendships(client, database, user.Id);
+            await SendFriendshipsAsync(client, database, user.Id);
         }
 
-        private static async Task SendFriendships(WebSocket client, PersonalDataDatabase database, long userID)
+        private static async Task SendFriendshipsAsync(WebSocket client, PersonalDataDatabase database, long userID)
         {
             (NpgsqlExceptionInfos npgsqlExceptionInfos, HashSet<Relationship>? relationships) = await database.GetUsersRelationships(userID);
 
             if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.NoDataEntrys)
                 return;
 
-            var payload = new
-            {
-                opCode = OpCode.SendFriendships,
-                npgsqlExceptionInfos,
-                relationships,
-            };
+            //var payload = new
+            //{
+            //    opCode = OpCode.SendFriendships,
+            //    npgsqlExceptionInfos,
+            //    relationships,
+            //};
 
-            await Server.SendPayloadAsync(client, payload);
+            //await Server.SendPayloadAsync(client, payload);
         }
 
-        public static async Task RequestToAutoLoginAsync(WebSocket client, JsonElement message)
-        {
-            Logger.LogInformation("Received an auto-login request");
-            string token = message.GetProperty("token").GetString()!;
-
-            PersonalDataDatabase database = new();
-            (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = await database.CheckLoginDataAsync(token);
-
-            var payload = new
-            {
-                opCode = OpCode.AutoLoginResponse,
-                npgsqlExceptionInfos,
-                user,
-            };
-            await AnswerClientAsync(client, npgsqlExceptionInfos, payload, user);
-
-            if (user != null)
-                await SendFriendships(client, database, user.Id);
-        }
+        #endregion
 
         public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)
         {
@@ -200,24 +193,6 @@ namespace Server_Messenger
                 opCode = OpCode.RequestToVerifiy,
                 success,
             };
-            await Server.SendPayloadAsync(client, payload);
-        }
-
-        private static async Task AnswerClientAsync(WebSocket client, NpgsqlExceptionInfos npgsqlExceptionInfos, object payload, User? user)
-        {
-            if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None && user != null)
-            {
-                Server.ClientsData.TryGetValue(client, out UserData? userData);
-
-                //Add the Id to the user data 
-                userData = userData! with 
-                { 
-                    Id = user.Id 
-                };
-
-                Server.ClientsData.AddOrUpdate(client, userData, (_, _) => { return userData; });
-            }
-
             await Server.SendPayloadAsync(client, payload);
         }
     }

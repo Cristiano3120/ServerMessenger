@@ -5,20 +5,18 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using System.Runtime.Versioning;
 
 namespace Server_Messenger
 {
     internal static class Server
     {
-        private static readonly ConcurrentDictionary<long, WebSocket> _clients = new();
-        public static ConcurrentDictionary<WebSocket, UserData> ClientsData { get; private set; } = new();
+        public static ConcurrentDictionary<long, WebSocket> Clients { get; private set; } = new();
         public static ConcurrentDictionary<WebSocket, VerificationInfos> VerificationCodes { get; private set; } = new();
         public static JsonSerializerOptions JsonSerializerOptions { get; private set; } = new();
         public static JsonElement Config { get; private set; } = JsonExtensions.ReadConfig();
-        //private static readonly string _emailPassword = ReadEmailPassword();
+        private static readonly string _emailPassword = ReadEmailPassword();
 
-        public static void Start()
+        public static async Task Start()
         {
             Logger.LogWarning("Starting the Server!");
 
@@ -34,17 +32,17 @@ namespace Server_Messenger
             JsonSerializerOptions.Converters.Add(new JsonConverters.RelationshipConverter());
             JsonSerializerOptions.WriteIndented = true;
 
-            Task.Run(ListenForConnectionsAsync);
+            _ = Task.Run(ListenForConnectionsAsync);
             Security.Init();
 
             PersonalDataDatabase personalDataDatabase = new();
-            personalDataDatabase.AddTestUsersToDb();
+            await personalDataDatabase.AddTestUsersToDb();
         }
 
         public static async Task ShutdownAsync()
         {
             Logger.LogWarning("Server is shutting down!");
-            foreach (WebSocket client in _clients.Values)
+            foreach (WebSocket client in Security.ClientAes.Keys)
             {
                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down!", CancellationToken.None);
             }
@@ -137,9 +135,6 @@ namespace Server_Messenger
                     case OpCode.RequestToVerifiy:
                         await HandleUserRequests.RequestToVerifyAsync(client, message);
                         break;
-                    case OpCode.AutoLoginRequest:
-                        await HandleUserRequests.RequestToAutoLoginAsync(client, message);
-                        break;
                     case OpCode.UpdateRelationship:
                         await HandleUserRequests.HandleRelationshipUpdateAsync(client, message);
                         break;
@@ -182,8 +177,7 @@ namespace Server_Messenger
                 await database.RemoveUserAsync(verificationInfos.Email);
             }
 
-            if (ClientsData.TryRemove(client, out UserData? userData))
-                _clients.TryRemove(userData.Id, out _);
+            Security.ClientAes.Remove(client, out _);
 
             client.Dispose();
         }
@@ -247,28 +241,31 @@ namespace Server_Messenger
             return Config.GetProperty("ServerUri").GetString() ?? throw new JsonException("The server uri couldn´t be accessed");
         }
 
-        //deactivated for safety reasons but it works
-        //private static string ReadEmailPassword() 
-        //    => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
+        private static string ReadEmailPassword()
+            => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
 
         #endregion
 
         public static async Task SendEmail(User user, int verificationCode)
         {
             Logger.LogInformation($"Sending an email. Code: {verificationCode}");
-            //var fromAddress = "ccardoso7002@gmail.com";
-            //var toAddress = $"{user.Email}";
-            //var subject = $"Verification Email";
-            //var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
-            //    $" If you did not attempt to create an account, please disregard this email.";
+            var fromAddress = "ccardoso7002@gmail.com";
+            var toAddress = $"{user.Email}";
+            var subject = $"Verification Email";
+            var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
+                $" If you did not attempt to create an account, please disregard this email.";
 
-            //var mail = new MailMessage(fromAddress, toAddress, subject, body);
+            #pragma warning disable IDE0059
+            var mail = new MailMessage(fromAddress, toAddress, subject, body);
 
-            //var smtpClient = new SmtpClient("smtp.gmail.com", 587)
-            //{
-            //    Credentials = new NetworkCredential(fromAddress, _emailPassword),
-            //    EnableSsl = true
-            //};
+            var smtpClient = new SmtpClient("smtp.gmail.com", 587)
+            {
+                Credentials = new NetworkCredential(fromAddress, _emailPassword),
+                EnableSsl = true
+            };
+
+            #pragma warning restore IDE0059
+            await Task.Delay(1); // Just so vs doesnt warn me
             //await smtpClient.SendMailAsync(mail);
         }
 

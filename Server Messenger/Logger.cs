@@ -82,8 +82,8 @@ namespace Server_Messenger
                 var lineNum = stackFrame?.GetFileLineNumber();
                 var columnNum = stackFrame?.GetFileColumnNumber();
 
-                var index = filename.LastIndexOf(@"\") + 1;
-                filename = filename.Remove(0, index);
+                var index = filename.LastIndexOf('\\') + 1;
+                filename = filename[index..];
 
                 var errorInfos = $"ERROR in file {filename}, in {methodName}, at line: {lineNum}, at column: {columnNum}";
                 Log(ConsoleColor.Red, errorInfos);

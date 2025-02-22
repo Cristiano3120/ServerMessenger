@@ -13,5 +13,6 @@
         UserNotFound = 5,
         TokenInvalid = 6,
         NoDataEntrys = 7,
+        UnexpectedEx = 8,
     }
 }

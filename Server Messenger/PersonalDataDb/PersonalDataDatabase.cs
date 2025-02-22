@@ -62,6 +62,11 @@ namespace Server_Messenger.PersonalDataDb
 
                 return exception;
             }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
+                return new NpgsqlExceptionInfos(NpgsqlExceptions.UnexpectedEx);
+            }
         }
 
         private static string GenerateToken(User user)
@@ -76,11 +81,11 @@ namespace Server_Messenger.PersonalDataDb
         {
             try
             {
-                return await _dbContext.Users.AnyAsync() 
-                    ? await _dbContext.Users.MaxAsync(x => x.Id) + 1 
+                return await _dbContext.Users.AnyAsync()
+                    ? await _dbContext.Users.MaxAsync(x => x.Id) + 1
                     : 1;
             }
-            catch (NpgsqlException ex)
+            catch (Exception ex)
             {
                 Logger.LogError(ex);
                 return -1;
@@ -91,10 +96,11 @@ namespace Server_Messenger.PersonalDataDb
 
         #region CheckLoginData
 
-        public async Task<(User? user, NpgsqlExceptionInfos npgsqlExceptionInfos)> CheckLoginDataAsync(string email, string password, bool stayLoggedIn)
+        public async Task<(User? user, NpgsqlExceptionInfos npgsqlExceptionInfos)> CheckLoginDataAsync(LoginRequest loginRequest)
         {
             try
             {
+                (string email, string password, bool stayLoggedIn) = loginRequest;
                 string encryptedEmail = Security.EncryptAesDatabase<string, string>(email);
                 string encryptedPassword = Security.EncryptAesDatabase<string, string>(password);
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == encryptedEmail && x.Password == encryptedPassword);
@@ -111,6 +117,11 @@ namespace Server_Messenger.PersonalDataDb
             {
                 NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlExceptionAsync(ex);
                 return (null, exceptionInfos);
+            }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
+                return (null, new NpgsqlExceptionInfos(NpgsqlExceptions.UnexpectedEx));
             }
         }
 
@@ -129,6 +140,11 @@ namespace Server_Messenger.PersonalDataDb
             {
                 NpgsqlExceptionInfos exceptionInfos = await HandleNpgsqlExceptionAsync(ex);
                 return (null, exceptionInfos);
+            }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
+                return (null, new NpgsqlExceptionInfos(NpgsqlExceptions.UnexpectedEx));
             }
         }
 
@@ -217,6 +233,11 @@ namespace Server_Messenger.PersonalDataDb
                 await HandleNpgsqlExceptionAsync(ex);
                 return null;
             }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
+                return null;
+            }
         }
 
         public async Task<(NpgsqlExceptionInfos, HashSet<Relationship>?)> GetUsersRelationships(long id)
@@ -250,6 +271,11 @@ namespace Server_Messenger.PersonalDataDb
             {
                 return (await HandleNpgsqlExceptionAsync(ex), null);
             }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
+                return (new NpgsqlExceptionInfos(NpgsqlExceptions.UnexpectedEx), null);
+            }
         }
 
         #endregion
@@ -280,7 +306,7 @@ namespace Server_Messenger.PersonalDataDb
                 string str = $"{i}";
                 user.Email = Security.EncryptAesDatabase<string, string>($"{decryptedEmail}{str}");
                 user.Username = Security.EncryptAesDatabase<string, string>($"{decryptedUsername}{str}");
-                user.Token = Security.EncryptAesDatabase<string,string>($"{i}");
+                user.Token = Security.EncryptAesDatabase<string, string>($"{i}");
                 user.Id = i;
 
                 await _dbContext.Users.AddAsync(user);
@@ -308,13 +334,20 @@ namespace Server_Messenger.PersonalDataDb
 
         public async Task RemoveUserAsync(string email)
         {
-            string encryptedEmail = Security.EncryptAesDatabase<string, string>(email);
-            User? userToRemove = _dbContext.Users.FirstOrDefault(x => x.Email == encryptedEmail);
-
-            if (userToRemove != null)
+            try
             {
-                _dbContext.Users.Remove(userToRemove);
-                await _dbContext.SaveChangesAsync();
+                string encryptedEmail = Security.EncryptAesDatabase<string, string>(email);
+                User? userToRemove = _dbContext.Users.FirstOrDefault(x => x.Email == encryptedEmail);
+
+                if (userToRemove != null)
+                {
+                    _dbContext.Users.Remove(userToRemove);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
             }
         }
 
@@ -351,6 +384,12 @@ namespace Server_Messenger.PersonalDataDb
                 default:
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.UnknownError);
             }
+        }
+
+        private static async Task HandleExceptionAsync(Exception ex)
+        {
+            Logger.LogError(ex);
+            await Server.ShutdownAsync();
         }
     }
 }

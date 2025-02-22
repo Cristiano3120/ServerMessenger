@@ -6,3 +6,4 @@
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Style", "IDE0046:In bedingten Ausdruck konvertieren", Justification = "<Ausstehend>", Scope = "member", Target = "~M:Server_Messenger.Security.DecryptAesDatabase(Server_Messenger.User)~Server_Messenger.User")]
+[assembly: SuppressMessage("Style", "IDE0039:Lokale Funktion verwenden", Justification = "<Ausstehend>", Scope = "member", Target = "~M:Server_Messenger.Worker.ExecuteAsync(System.Threading.CancellationToken)~System.Threading.Tasks.Task")]

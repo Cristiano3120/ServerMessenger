@@ -1,5 +1,5 @@
-﻿using System.Net.WebSockets;
-using System.Runtime.InteropServices;
+﻿using System.Collections.Concurrent;
+using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
 using ZstdNet;
@@ -8,6 +8,7 @@ namespace Server_Messenger
 {
     internal static class Security
     {
+        public static ConcurrentDictionary<WebSocket, Aes> ClientAes { get; private set; } = new();
         private static RSAParameters _publicKey;
         private static Aes? _databaseAes;
         private static RSA? _rsa;
@@ -98,10 +99,8 @@ namespace Server_Messenger
             if (dataToEncrypt.Length == 0)
                 throw new InvalidOperationException("Data to encrypt is empty.");
 
-            if (Server.ClientsData.TryGetValue(client, out UserData? userdata))
+            if (ClientAes.TryGetValue(client, out Aes? aes))
             {
-                (long _, Aes aes) = userdata;
-
                 using (var ms = new MemoryStream())
                 {
                     using (ICryptoTransform encryptor = aes.CreateEncryptor())
@@ -188,10 +187,8 @@ namespace Server_Messenger
 
         public static byte[] DecryptAes(WebSocket client, byte[] encryptedData)
         {
-            if (Server.ClientsData.TryGetValue(client, out UserData? userData))
+            if (ClientAes.TryGetValue(client, out Aes? aes))
             {
-                (_, Aes aes) = userData;
-
                 ICryptoTransform decryptor = aes.CreateDecryptor();
 
                 using var ms = new MemoryStream(encryptedData);

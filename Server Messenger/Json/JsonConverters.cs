@@ -11,7 +11,7 @@ namespace Server_Messenger.Json
         {
             public override User Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
             {
-                using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
+                using (var doc = JsonDocument.ParseValue(ref reader))
                 {
                     JsonElement root = doc.RootElement;
 
