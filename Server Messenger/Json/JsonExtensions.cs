@@ -25,9 +25,10 @@ namespace Server_Messenger.Json
         /// <returns><c>Returns</c> the from the client sent Aes</returns>
         public static Aes GetAes(this JsonElement property)
         {
+            AesKeyData aesKeyData = JsonSerializer.Deserialize<AesKeyData>(property.GetProperty("aesKeyData"), Server.JsonSerializerOptions);
             var aes = Aes.Create();
-            aes.Key = property.GetProperty("key").GetBytesFromBase64();
-            aes.IV = property.GetProperty("iv").GetBytesFromBase64();
+            aes.Key = Convert.FromBase64String(aesKeyData.Key);
+            aes.IV = Convert.FromBase64String(aesKeyData.IV);
             return aes;
         }
 

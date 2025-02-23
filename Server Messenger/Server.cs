@@ -129,7 +129,7 @@ namespace Server_Messenger
                         Logger.LogInformation("Received RequestToCreateAccount");
                         await HandleUserRequests.CreateAccountAsync(client, message);
                         break;
-                    case OpCode.RequestLogin:
+                    case OpCode.RequestToLogin:
                         await HandleUserRequests.RequestToLoginAsync(client, message);
                         break;
                     case OpCode.RequestToVerifiy:
@@ -143,10 +143,7 @@ namespace Server_Messenger
             catch (InvalidOperationException ex)
             {
                 Logger.LogError(ex);
-                var cts = new CancellationTokenSource();
-                cts.CancelAfter(TimeSpan.FromSeconds(10));
-                await client.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, null, cts.Token);
-                cts.Dispose();
+                await client.CloseAsync(WebSocketCloseStatus.InvalidPayloadData, null, CancellationToken.None);
             }
             catch (Exception ex)
             {

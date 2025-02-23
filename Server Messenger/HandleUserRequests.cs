@@ -96,14 +96,14 @@ namespace Server_Messenger
         public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
             Logger.LogInformation("Received an login request");
-            LoginRequest? loginRequest = JsonSerializer.Deserialize<LoginRequest>(message.GetProperty("loginRequest"), Server.JsonSerializerOptions);
+            LoginRequest loginRequest = JsonSerializer.Deserialize<LoginRequest>(message.GetProperty("loginRequest"), Server.JsonSerializerOptions);
 
-            if (loginRequest == null)
+            if (loginRequest.IsEmpty())
             {
                 await Server.ClosingConnAsync(client);
                 return;
             }
-
+            
             string token = loginRequest.Token;
             PersonalDataDatabase database = new();
             (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = token == ""
@@ -111,8 +111,8 @@ namespace Server_Messenger
                 : await database.CheckLoginDataAsync(token);
 
             OpCode opCode = token == ""
-                ? OpCode.AnswerToLoginRequest
-                : OpCode.AnswerToAutoLoginRequest;
+                ? OpCode.AnswerToLogin
+                : OpCode.AnswerToAutoLogin;
 
             var payload = new
             {
