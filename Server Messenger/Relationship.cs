@@ -2,14 +2,14 @@
 
 namespace Server_Messenger
 {
-    public class Relationship: IEnumerable<(string name, string value)>
+    public sealed class Relationship: IEnumerable<(string name, string value)>
     {
         public long Id { get; init; } = -1;
         public byte[] ProfilePicture { get; set; } = [];
         public string Username { get; set; } = "";
         public string HashTag { get; set; } = "";
         public string Biography { get; set; } = "";
-        public Relationshipstate Relationshipstate { get; set; }
+        public RelationshipState RelationshipState { get; set; }
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
@@ -18,7 +18,7 @@ namespace Server_Messenger
             yield return (nameof(Biography).ToCamelCase(), Biography);
             yield return (nameof(Id).ToCamelCase(), Id.ToString());
             yield return (nameof(ProfilePicture).ToCamelCase(), Convert.ToBase64String(ProfilePicture));
-            yield return (nameof(Relationshipstate).ToCamelCase(), Relationshipstate.ToString());
+            yield return (nameof(RelationshipState).ToCamelCase(), RelationshipState.ToString());
         }
 
         IEnumerator IEnumerable.GetEnumerator()

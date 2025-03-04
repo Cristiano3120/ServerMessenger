@@ -2,7 +2,7 @@
 
 namespace Server_Messenger
 {
-    public readonly struct LoginRequest
+    public readonly record struct LoginRequest
     {
         [JsonPropertyName("email")]
         public string Email { get; init; }

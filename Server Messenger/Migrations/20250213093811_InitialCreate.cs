@@ -18,7 +18,7 @@ namespace Server_Messenger.Migrations
                 {
                     SenderId = table.Column<long>(type: "bigint", nullable: false),
                     ReceiverId = table.Column<long>(type: "bigint", nullable: false),
-                    Relationshipstate = table.Column<byte>(type: "smallint", nullable: false)
+                    RelationshipState = table.Column<byte>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {

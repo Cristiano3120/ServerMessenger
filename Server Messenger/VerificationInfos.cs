@@ -1,9 +1,9 @@
 ﻿namespace Server_Messenger
 {
-    internal class VerificationInfos
+    internal struct VerificationInfos(byte verificationAttempts, long verificationCode, string email)
     {
-        public byte VerificationAttempts { get; set; }
-        public long VerificationCode { get; init; }
-        public string Email { get; init; } = "";
+        public byte VerificationAttempts { get; set; } = verificationAttempts;
+        public long VerificationCode { get; init; } = verificationCode;
+        public string Email { get; init; } = email;
     }
 }

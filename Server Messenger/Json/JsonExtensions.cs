@@ -37,8 +37,8 @@ namespace Server_Messenger.Json
         /// </summary>
         /// <param name="property"></param>
         /// <returns></returns>
-        public static Relationshipstate GetRelationshipstate(this JsonElement property)
-            => (Relationshipstate)property.GetByte();
+        public static RelationshipState GetRelationshipState(this JsonElement property)
+            => (RelationshipState)property.GetByte();
 
         #endregion
 

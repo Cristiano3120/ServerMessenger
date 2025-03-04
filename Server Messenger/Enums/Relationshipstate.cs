@@ -1,6 +1,6 @@
 ﻿namespace Server_Messenger.Enums
 {
-    public enum Relationshipstate : byte
+    public enum RelationshipState : byte
     {
         None = 0,
         Friend = 1,

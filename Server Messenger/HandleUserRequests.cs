@@ -59,27 +59,17 @@ namespace Server_Messenger
 
         public static async Task HandleRelationshipUpdateAsync(WebSocket client, JsonElement message)
         {
-            JsonElement relationshipUpdateProperty = message.GetProperty("relationshipUpdate");
-
-            Relationshipstate relationshipstate = relationshipUpdateProperty.GetProperty("requestedRelationshipstate").GetRelationshipstate();
-            Relationship wantedRelationship = JsonSerializer.Deserialize<Relationship>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
-            User user = JsonSerializer.Deserialize<User>(relationshipUpdateProperty, Server.JsonSerializerOptions)!;
-
-            RelationshipUpdate relationshipUpdate = new()
-            {
-                User = user,
-                Relationship = wantedRelationship,
-                RequestedRelationshipstate = relationshipstate
-            };
-
-            if (user == null || wantedRelationship == null)
-            {
-                await Server.ClosingConnAsync(client);
-                return;
-            }
+            RelationshipUpdate relationshipUpdate = JsonSerializer.Deserialize<RelationshipUpdate>(message.GetProperty("relationshipUpdate"), Server.JsonSerializerOptions);
 
             PersonalDataDatabase database = new();
             (NpgsqlExceptionInfos npgsqlExceptionInfos, Relationship? relationship) = await database.UpdateRelationshipAsync(relationshipUpdate);
+
+            // If the relationship state is not "Pending" the requesting user already has all necessary data.  
+            // To prevent sending redundant data we discard it.  
+            if (relationshipUpdate.RequestedRelationshipState != RelationshipState.Pending)
+            {
+                relationship = null;
+            }
 
             var payload = new
             {
@@ -135,6 +125,7 @@ namespace Server_Messenger
                     VerificationAttempts = 0,
                     Email = user.Email,
                 };
+
                 await Server.SendEmail(user, verificationCode);
                 Server.VerificationCodes.TryAdd(client, verificationInfos);
                 return;
@@ -150,25 +141,28 @@ namespace Server_Messenger
             if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.NoDataEntrys)
                 return;
 
-            //var payload = new
-            //{
-            //    opCode = OpCode.SendFriendships,
-            //    npgsqlExceptionInfos,
-            //    relationships,
-            //};
+            if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None && relationships?.Count == 0)
+                return;
+            
+            var payload = new
+            {
+                opCode = OpCode.SendFriendships,
+                npgsqlExceptionInfos,
+                relationships,
+            };
 
-            //await Server.SendPayloadAsync(client, payload);
+            await Server.SendPayloadAsync(client, payload);
         }
 
         #endregion
 
         public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)
         {
-            Server.VerificationCodes.TryGetValue(client, out VerificationInfos? verificationInfos);
+            Server.VerificationCodes.TryGetValue(client, out VerificationInfos verificationInfos);
             int userVerificationCode = message.GetProperty("verificationCode").GetInt32();
             object payload;
 
-            if (verificationInfos == null || verificationInfos.VerificationAttempts == 5)
+            if (verificationInfos.VerificationAttempts == 5)
             {
                 payload = new
                 {

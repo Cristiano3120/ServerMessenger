@@ -2,10 +2,11 @@
 
 namespace Server_Messenger
 {
-    internal sealed record NpgsqlExceptionInfos
+    internal readonly record struct NpgsqlExceptionInfos
     {
         [JsonPropertyName("npgsqlExceptions")]
         public NpgsqlExceptions Exception { get; init; }
+
         [JsonPropertyName("columnName")]
         public string ColumnName { get; init; }
 

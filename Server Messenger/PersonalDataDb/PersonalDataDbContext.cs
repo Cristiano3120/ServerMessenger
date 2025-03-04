@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Design;
 
 namespace Server_Messenger.PersonalDataDb
 {
-    internal class PersonalDataDbContext : DbContext, IDesignTimeDbContextFactory<PersonalDataDbContext>
+    internal sealed class PersonalDataDbContext : DbContext, IDesignTimeDbContextFactory<PersonalDataDbContext>
     {
         public DbSet<User> Users { get; set; }
         public DbSet<Relationships> Relationships { get; set; }

@@ -14,5 +14,6 @@
         TokenInvalid = 6,
         NoDataEntrys = 7,
         UnexpectedEx = 8,
+        RequestedUserIsBlocked = 9,
     }
 }

@@ -168,7 +168,7 @@ namespace Server_Messenger
             if (client.State == WebSocketState.Open)
                 await client.CloseAsync(WebSocketCloseStatus.InternalServerError, "", CancellationToken.None);
 
-            if (VerificationCodes.Remove(client, out VerificationInfos? verificationInfos))
+            if (VerificationCodes.Remove(client, out VerificationInfos verificationInfos))
             {
                 PersonalDataDatabase database = new();
                 await database.RemoveUserAsync(verificationInfos.Email);

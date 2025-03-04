@@ -30,7 +30,7 @@ namespace Server_Messenger.Migrations
                     b.Property<long>("ReceiverId")
                         .HasColumnType("bigint");
 
-                    b.Property<byte>("Relationshipstate")
+                    b.Property<byte>("RelationshipState")
                         .HasColumnType("smallint");
 
                     b.HasKey("SenderId", "ReceiverId");
