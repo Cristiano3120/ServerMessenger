@@ -1,4 +1,5 @@
 ﻿using System.Net.WebSockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -8,7 +9,6 @@ namespace Server_Messenger
     {
         public static async Task ReceivedAesAsync(WebSocket client, JsonElement message)
         {
-            Logger.LogInformation("Received Aes");
             Security.ClientAes.TryAdd(client, message.GetAes());
 
             var payload = new
@@ -18,9 +18,9 @@ namespace Server_Messenger
             await Server.SendPayloadAsync(client, payload);
         }
 
+        #region Create Account
         public static async Task CreateAccountAsync(WebSocket client, JsonElement message)
         {
-            Logger.LogInformation("Received a request to create an account");
             User? user = JsonSerializer.Deserialize<User>(message, Server.JsonSerializerOptions);
 
             if (user == null)
@@ -30,7 +30,7 @@ namespace Server_Messenger
             }
 
             PersonalDataDatabase database = new();
-            NpgsqlExceptionInfos npgsqlExceptionInfos = await database.CreateAccountAsync(user);
+            (NpgsqlExceptionInfos npgsqlExceptionInfos, long userId) = await database.CreateAccountAsync(user);
 
             if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None)
             {
@@ -40,7 +40,7 @@ namespace Server_Messenger
                 {
                     VerificationCode = verificationCode,
                     VerificationAttempts = 0,
-                    Email = user.Email
+                    UserId = userId,
                 };
 
                 Server.VerificationCodes.TryAdd(client, verificationInfo);
@@ -57,35 +57,101 @@ namespace Server_Messenger
             await Server.SendPayloadAsync(client, payload);
         }
 
+        public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)
+        {
+            Server.VerificationCodes.TryGetValue(client, out VerificationInfos verificationInfos);
+            int userVerificationCode = message.GetProperty("verificationCode").GetInt32();
+            object payload;
+
+            byte maxVerificationAttempts = 3;
+            if (verificationInfos.VerificationAttempts == maxVerificationAttempts)
+            {
+                payload = new
+                {
+                    opCode = OpCode.VerificationWentWrong,
+                };
+                await Server.SendPayloadAsync(client, payload);
+                return;
+            }
+
+            bool success = userVerificationCode == verificationInfos.VerificationCode;
+            if (success)
+            {
+                Server.VerificationCodes.Remove(client, out _);
+                Server.Clients.TryAdd(verificationInfos.UserId, client);
+            }
+            else
+            {
+                verificationInfos.VerificationAttempts++;
+            }
+
+            payload = new
+            {
+                opCode = OpCode.RequestToVerifiy,
+                success,
+            };
+            await Server.SendPayloadAsync(client, payload);
+        }
+
+        #endregion
+
+        #region Handle Relationship Update
         public static async Task HandleRelationshipUpdateAsync(WebSocket client, JsonElement message)
         {
             RelationshipUpdate relationshipUpdate = JsonSerializer.Deserialize<RelationshipUpdate>(message.GetProperty("relationshipUpdate"), Server.JsonSerializerOptions);
 
             PersonalDataDatabase database = new();
-            (NpgsqlExceptionInfos npgsqlExceptionInfos, Relationship? relationship) = await database.UpdateRelationshipAsync(relationshipUpdate);
-
-            // If the relationship state is not "Pending" the requesting user already has all necessary data.  
-            // To prevent sending redundant data we discard it.  
-            if (relationshipUpdate.RequestedRelationshipState != RelationshipState.Pending)
-            {
-                relationship = null;
-            }
+            NpgsqlExceptionInfos npgsqlExceptionInfos = await database.UpdateRelationshipAsync(relationshipUpdate);
 
             var payload = new
             {
                 opCode = OpCode.AnswerToRequestedRelationshipUpdate,
                 npgsqlExceptionInfos,
-                relationship
             };
 
             await Server.SendPayloadAsync(client, payload);
+
+            if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None)
+            {
+                await InformAffectedUser(relationshipUpdate);
+            }
         }
 
-        #region Login
+        /// <summary>
+        /// Informs the affected user that a relationship has been updated
+        /// </summary>
+        /// <returns></returns>
+        private static async Task InformAffectedUser(RelationshipUpdate pRelationshipUpdate)
+        {
+            long affectedClientId = pRelationshipUpdate.Relationship!.Id;
+
+            if (affectedClientId == -1)
+            {
+                PersonalDataDatabase database = new();
+                var user = (Relationship)await database.GetUser(pRelationshipUpdate.Relationship.Username, pRelationshipUpdate.Relationship.HashTag);
+                affectedClientId = user!.Id;
+            }
+
+            RelationshipUpdate relationshipUpdate = pRelationshipUpdate with
+            {
+                Relationship = (Relationship)pRelationshipUpdate.User,
+                User = null
+            };
+
+            var payload = new
+            {
+                opCode = OpCode.ARelationshipWasUpdated,
+                relationshipUpdate
+            };
+
+            WebSocket affectedClient = Server.Clients[affectedClientId];
+            await Server.SendPayloadAsync(affectedClient, payload);
+        }
+
+        #endregion
 
         public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
-            Logger.LogInformation("Received an login request");
             LoginRequest loginRequest = JsonSerializer.Deserialize<LoginRequest>(message.GetProperty("loginRequest"), Server.JsonSerializerOptions);
 
             if (loginRequest.IsEmpty())
@@ -93,9 +159,10 @@ namespace Server_Messenger
                 await Server.ClosingConnAsync(client);
                 return;
             }
-            
+
             string token = loginRequest.Token;
             PersonalDataDatabase database = new();
+
             (User? user, NpgsqlExceptionInfos npgsqlExceptionInfos) = token == ""
                 ? await database.CheckLoginDataAsync(loginRequest)
                 : await database.CheckLoginDataAsync(token);
@@ -123,12 +190,16 @@ namespace Server_Messenger
                 {
                     VerificationCode = verificationCode,
                     VerificationAttempts = 0,
-                    Email = user.Email,
+                    UserId = user.Id,
                 };
 
                 await Server.SendEmail(user, verificationCode);
                 Server.VerificationCodes.TryAdd(client, verificationInfos);
                 return;
+            }
+            else
+            {
+                Server.Clients.TryAdd(user.Id, client);
             }
 
             await SendFriendshipsAsync(client, database, user.Id);
@@ -143,7 +214,7 @@ namespace Server_Messenger
 
             if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None && relationships?.Count == 0)
                 return;
-            
+
             var payload = new
             {
                 opCode = OpCode.SendFriendships,
@@ -151,42 +222,6 @@ namespace Server_Messenger
                 relationships,
             };
 
-            await Server.SendPayloadAsync(client, payload);
-        }
-
-        #endregion
-
-        public static async Task RequestToVerifyAsync(WebSocket client, JsonElement message)
-        {
-            Server.VerificationCodes.TryGetValue(client, out VerificationInfos verificationInfos);
-            int userVerificationCode = message.GetProperty("verificationCode").GetInt32();
-            object payload;
-
-            if (verificationInfos.VerificationAttempts == 5)
-            {
-                payload = new
-                {
-                    opCode = OpCode.VerificationWentWrong,
-                };
-                await Server.SendPayloadAsync(client, payload);
-                return;
-            }
-
-            bool success = userVerificationCode == verificationInfos.VerificationCode;
-            if (success)
-            {
-                Server.VerificationCodes.Remove(client, out _);
-            }
-            else
-            {
-                verificationInfos.VerificationAttempts++;
-            }
-
-            payload = new
-            {
-                opCode = OpCode.RequestToVerifiy,
-                success,
-            };
             await Server.SendPayloadAsync(client, payload);
         }
     }

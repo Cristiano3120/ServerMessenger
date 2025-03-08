@@ -15,5 +15,6 @@
         UpdateRelationship = 11,
         AnswerToRequestedRelationshipUpdate = 12,
         SendFriendships = 13,
+        ARelationshipWasUpdated = 14,
     }
 }

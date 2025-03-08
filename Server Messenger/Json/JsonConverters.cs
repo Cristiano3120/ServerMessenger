@@ -15,7 +15,10 @@ namespace Server_Messenger.Json
                 {
                     JsonElement root = doc.RootElement;
 
-                    root = root.GetProperty("user");
+                    if (root.TryGetProperty("user", out JsonElement userProperty))
+                    {
+                        root = userProperty;
+                    }
 
                     return new User()
                     {
@@ -72,8 +75,6 @@ namespace Server_Messenger.Json
                     {
                         root = relationshipProperty;
                     }
-
-                    byte[] profilPic = [];
 
                     return root.ValueKind == JsonValueKind.Null
                         ? null

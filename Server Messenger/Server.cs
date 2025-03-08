@@ -52,6 +52,8 @@ namespace Server_Messenger
 
         private static async Task ListenForConnectionsAsync()
         {
+            Logger.LogWarning("Listening for Clients");
+
             HttpListener listener = new();
             listener.Prefixes.Add(GetUri(true));
             listener.Start();
@@ -81,7 +83,7 @@ namespace Server_Messenger
                 try
                 {
                     WebSocketReceiveResult receivedDataInfo = await client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                    Logger.LogInformation(ConsoleColor.Cyan, $"[RECEIVED]: The received payload is {receivedDataInfo.Count} bytes long");
+                    Logger.LogInformation(ConsoleColor.Cyan, false, $"[RECEIVED]: The received payload is {receivedDataInfo.Count} bytes long");
 
                     if (receivedDataInfo.MessageType == WebSocketMessageType.Close)
                     {
@@ -100,7 +102,7 @@ namespace Server_Messenger
                     byte[] decompressedBytes = Security.DecompressData(decryptedData);
                     var completeMessage = Encoding.UTF8.GetString(decompressedBytes);
 
-                    Logger.LogInformation(ConsoleColor.Green, $"[RECEIVED]: {completeMessage}");
+                    Logger.LogPayload(ConsoleColor.Green, completeMessage, "[RECEIVED]:");
                     ClearMs(ms);
 
                     await HandleReceivedMessageAsync(client, JsonDocument.Parse(completeMessage).RootElement);
@@ -171,9 +173,11 @@ namespace Server_Messenger
             if (VerificationCodes.Remove(client, out VerificationInfos verificationInfos))
             {
                 PersonalDataDatabase database = new();
-                await database.RemoveUserAsync(verificationInfos.Email);
+                await database.RemoveUserAsync(verificationInfos.UserId);
             }
 
+            long key = Clients.FirstOrDefault(pair => EqualityComparer<WebSocket>.Default.Equals(pair.Value, client)).Key;
+            Clients.Remove(key, out _);
             Security.ClientAes.Remove(client, out _);
 
             client.Dispose();
@@ -191,6 +195,7 @@ namespace Server_Messenger
 
                 if (client.State != WebSocketState.Open)
                 {
+                    Logger.LogWarning("MESSAGE CAN´T BE SENT: WEBSOCKETSTATE: ABORTED");
                     return;
                 }
 
@@ -203,8 +208,8 @@ namespace Server_Messenger
 
                 await client.SendAsync(buffer, WebSocketMessageType.Binary, true, CancellationToken.None);
 
-                Logger.LogInformation(ConsoleColor.Blue, $"[SENDING(Aes)]: {jsonPayload}");
-                Logger.LogInformation($"Buffer length: {buffer.Length}");
+                Logger.LogInformation(ConsoleColor.Cyan, false, $"[SENDING(Aes)]: {buffer.Length} bytes");
+                Logger.LogPayload(ConsoleColor.Blue, jsonPayload, "[SENDING(Aes)]:");
             }
             catch (Exception ex)
             {

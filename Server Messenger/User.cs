@@ -16,8 +16,10 @@ namespace Server_Messenger
         public bool FaEnabled { get; set; }
         public string Token { get; set; } = "";
 
-        public static explicit operator Relationship(User user)
-            => new()
+        public static explicit operator Relationship(User? user)
+        {
+            ArgumentNullException.ThrowIfNull(user, nameof(user));
+            return new()
             {
                 Username = user.Username,
                 HashTag = user.HashTag,
@@ -25,6 +27,7 @@ namespace Server_Messenger
                 Biography = user.Biography,
                 ProfilePicture = user.ProfilePicture,
             };
+        }
 
         public IEnumerator<(string name, string value)> GetEnumerator()
         {

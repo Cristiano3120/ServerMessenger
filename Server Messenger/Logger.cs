@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Npgsql;
 
 namespace Server_Messenger
@@ -11,16 +13,16 @@ namespace Server_Messenger
 
         #region LogInformation
 
-        public static void LogInformation(ConsoleColor color, params string[] logs)
+        public static void LogInformation(ConsoleColor color, bool makeLineAfter = true, params string[] logs)
         {
             Console.ForegroundColor = color;
-            Log(color, logs);
+            Log(color, makeLineAfter, logs);
         }
 
         public static void LogInformation(params string[] logs)
         {
             Console.ForegroundColor = ConsoleColor.White;
-            Log(ConsoleColor.White, logs);
+            Log(ConsoleColor.White, true, logs);
         }
 
         #endregion
@@ -30,7 +32,7 @@ namespace Server_Messenger
         /// </summary>
         public static void LogWarning(params string[] logs)
         {
-            Log(ConsoleColor.Yellow, logs);
+            Log(ConsoleColor.Yellow, true, logs);
         }
 
         /// <summary>
@@ -42,7 +44,7 @@ namespace Server_Messenger
         {
             if (exception is string str)
             {
-                Log(ConsoleColor.Red, str);
+                Log(ConsoleColor.Red, true, str);
                 return;
             }
 
@@ -57,7 +59,7 @@ namespace Server_Messenger
 
             if (exception is NpgsqlException npgsqlException)
             {
-                Log(ConsoleColor.Red, $"ERROR(SQLSTATE): {npgsqlException.SqlState}");
+                Log(ConsoleColor.Red, true, $"ERROR(SQLSTATE): {npgsqlException.SqlState}");
             }
 
             Exception ex = exception as Exception
@@ -86,27 +88,44 @@ namespace Server_Messenger
                 filename = filename[index..];
 
                 var errorInfos = $"ERROR in file {filename}, in {methodName}, at line: {lineNum}, at column: {columnNum}";
-                Log(ConsoleColor.Red, errorInfos);
+                Log(ConsoleColor.Red, true, errorInfos);
             }
 
-            Log(ConsoleColor.Red, $"ERROR: {ex.Message}");
+            Log(ConsoleColor.Red, true, $"ERROR: {ex.Message}");
 
             if (ex.InnerException != null)
                 LogError(ex.InnerException);
         }
 
+        public static void LogPayload(ConsoleColor color, string payload, string prefix)
+        {
+            Console.ForegroundColor = color;
+
+            string message = FilterProfilPicRegex().Replace(payload, "$1[Image]$2");
+            JsonNode jsonNode = JsonNode.Parse(message)!;
+            jsonNode["opCode"] = Enum.Parse<OpCode>(jsonNode["opCode"]!.ToString()).ToString();
+
+            Console.WriteLine($"[{DateTime.Now:HH: dd: ss}]: {prefix} {jsonNode}");
+            Console.WriteLine("");
+
+        }
+
         /// <summary>
         /// The method that filters the logs and writes them into the Console
         /// </summary>
-        private static void Log(ConsoleColor color, params string[] logs)
+        private static void Log(ConsoleColor color, bool makeLineAfter, params string[] logs)
         {
             Console.ForegroundColor = color;
             for (int i = 0; i < logs.Length; i++)
             {
                 string message = FilterProfilPicRegex().Replace(logs[i], "$1[Image]$2");
-                Console.WriteLine($"[{DateTime.Now:HH: dd: ss}]: {message}");
+                Console.WriteLine($"[{DateTime.Now:HH: mm: ss}]: {message}");
             }
-            Console.WriteLine("");
+
+            if (makeLineAfter)
+            {
+                Console.WriteLine("");
+            }  
         }
     }
 }
