@@ -138,14 +138,16 @@ namespace Server_Messenger
                 User = null
             };
 
-            var payload = new
+            if (Server.Clients.TryGetValue(affectedClientId, out WebSocket? affectedClient))
             {
-                opCode = OpCode.ARelationshipWasUpdated,
-                relationshipUpdate
-            };
+                var payload = new
+                {
+                    opCode = OpCode.ARelationshipWasUpdated,
+                    relationshipUpdate
+                };
 
-            WebSocket affectedClient = Server.Clients[affectedClientId];
-            await Server.SendPayloadAsync(affectedClient, payload);
+                await Server.SendPayloadAsync(affectedClient, payload);
+            }
         }
 
         #endregion

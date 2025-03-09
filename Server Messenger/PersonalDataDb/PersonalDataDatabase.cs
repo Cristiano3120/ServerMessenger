@@ -161,10 +161,8 @@ namespace Server_Messenger.PersonalDataDb
                 (User user, Relationship? affectedRelationship, RelationshipState requestedRelationshipState) = relationshipUpdate;
                 if (affectedRelationship == null)
                 {
-                    return new NpgsqlExceptionInfos(NpgsqlExceptions.UnknownError);
+                    return new NpgsqlExceptionInfos(NpgsqlExceptions.PayloadDataMissing);
                 }
-
-                
 
                 if (affectedRelationship.Id == -1)
                 {
