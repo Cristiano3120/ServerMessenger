@@ -158,8 +158,8 @@ namespace Server_Messenger.PersonalDataDb
         {
             try
             {
-                (User user, Relationship? affectedRelationship, RelationshipState requestedRelationshipState) = relationshipUpdate;
-                if (affectedRelationship == null)
+                (User? user, Relationship? affectedRelationship, RelationshipState requestedRelationshipState) = relationshipUpdate;
+                if (affectedRelationship == null || user == null)
                 {
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.PayloadDataMissing);
                 }

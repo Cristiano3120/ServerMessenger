@@ -28,7 +28,7 @@ namespace Server_Messenger.Json
             AesKeyData aesKeyData = JsonSerializer.Deserialize<AesKeyData>(property.GetProperty("aesKeyData"), Server.JsonSerializerOptions);
             var aes = Aes.Create();
             aes.Key = Convert.FromBase64String(aesKeyData.Key);
-            aes.IV = Convert.FromBase64String(aesKeyData.IV);
+            aes.IV = Convert.FromBase64String(aesKeyData.Iv);
             return aes;
         }
 
