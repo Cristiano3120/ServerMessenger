@@ -76,7 +76,7 @@ namespace Server_Messenger
         private static async Task HandleClientAsync(WebSocket client)
         {
             var buffer = new byte[65536];
-            var ms = new MemoryStream();
+            MemoryStream ms = new();
 
             while (client.State == WebSocketState.Open)
             {
@@ -260,10 +260,10 @@ namespace Server_Messenger
             var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
                 $" If you did not attempt to create an account, please disregard this email.";
 
-            #pragma warning disable IDE0059
-            var mail = new MailMessage(fromAddress, toAddress, subject, body);
+#pragma warning disable IDE0059
+            MailMessage mail = new(fromAddress, toAddress, subject, body);
 
-            var smtpClient = new SmtpClient("smtp.gmail.com", 587)
+            SmtpClient smtpClient = new("smtp.gmail.com", 587)
             {
                 Credentials = new NetworkCredential(fromAddress, _emailPassword),
                 EnableSsl = true

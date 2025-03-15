@@ -2,6 +2,7 @@
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Query.Expressions.Internal;
 using ZstdNet;
 
 namespace Server_Messenger
@@ -93,7 +94,14 @@ namespace Server_Messenger
                 Id = user.Id,
             };
 
-
+        public static Message EncryptAesDatabase(Message message)
+        {
+            return message with
+            {
+                Content = EncryptAesDatabase<string, string>(message.Content),
+            };
+        }
+            
         public static byte[] EncryptAes(WebSocket client, byte[] dataToEncrypt)
         {
             if (dataToEncrypt.Length == 0)
@@ -161,8 +169,8 @@ namespace Server_Messenger
                         _ when typeof(TReturn) == typeof(string) => (TReturn)(object)Encoding.UTF8.GetString(decryptedBytes),
                         _ => throw new InvalidOperationException("TReturn has an invalid type. Needs to be of type byte[] or string."),
                     };
-                }      
-            }   
+                }
+            }
         }
 
         /// <summary>
@@ -190,6 +198,21 @@ namespace Server_Messenger
             };
         }
 
+        public static List<Message> DecryptAesDatabase(List<Message> messages)
+        {
+            List<Message> decryptedMessages = new();
+            foreach (Message message in messages)
+            {
+                Message decryptedMessage = message with
+                {
+                    Content = DecryptAesDatabase<string, string>(message.Content)
+                };
+                decryptedMessages.Add(decryptedMessage);
+            }
+
+            return decryptedMessages;
+        }
+
         public static byte[] DecryptAes(WebSocket client, byte[] encryptedData)
         {
             if (ClientAes.TryGetValue(client, out Aes? aes))
@@ -204,8 +227,8 @@ namespace Server_Messenger
                         cs.CopyTo(resultStream);
 
                         return resultStream.ToArray();
-                    }   
-                }          
+                    }
+                }
             }
 
             throw new InvalidOperationException("Client data not found.");

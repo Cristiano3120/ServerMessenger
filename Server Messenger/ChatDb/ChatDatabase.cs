@@ -23,11 +23,18 @@ namespace Server_Messenger.ChatDb
         public async Task<Chat[]> GetChats(long id)
         {
             FilterDefinition<Chat> filter = Builders<Chat>.Filter.AnyEq(x => x.Members, id);
-            return [.. await _chats.Find(filter).ToListAsync()];
+            Chat[] chats = [.. await _chats.Find(filter).ToListAsync()];
+            for (int i = 0; i < chats.Length; i++)
+            {
+                chats[i].Messages = Security.DecryptAesDatabase(chats[i].Messages);
+            }
+
+            return chats;
         }
 
         public async Task AddMessage(Message message, long receiverId)
         {
+            message = Security.EncryptAesDatabase(message);
             string chatID = CombineIds([message.SenderId, receiverId]);
             Chat chat = await _chats.Find(x => x.ChatID == chatID).FirstOrDefaultAsync();
 

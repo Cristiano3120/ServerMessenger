@@ -10,6 +10,6 @@ namespace Server_Messenger.ChatDb
         public string Id { get; private set; } = ObjectId.GenerateNewId().ToString();
         public string ChatID { get; set; } = "";
         public required List<long> Members { get; set; }
-        public List<Message> Messages { get; init; } = [];
+        public List<Message> Messages { get; set; } = [];
     }
 }
