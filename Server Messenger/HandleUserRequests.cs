@@ -1,5 +1,4 @@
 ﻿using System.Net.WebSockets;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -152,6 +151,25 @@ namespace Server_Messenger
 
         #endregion
 
+        public static async Task HandleChatMessageAsync(JsonElement message)
+        {
+            Message chatMessage = JsonSerializer.Deserialize<Message>(message.GetProperty("message"), Server.JsonSerializerOptions);
+            long otherUserID = message.GetProperty("otherUserId").GetInt64();
+
+            if (Server.Clients.TryGetValue(otherUserID, out WebSocket? receiverClient))
+            {
+                var payload = new
+                {
+                    opCode = OpCode.UserReceiveChatMessage,
+                    chatMessage,
+                };
+                await Server.SendPayloadAsync(receiverClient, payload);
+            }
+
+            ChatDatabase chatDatabase = new();
+            await chatDatabase.AddMessage(chatMessage, otherUserID);
+        }
+
         public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
             LoginRequest loginRequest = JsonSerializer.Deserialize<LoginRequest>(message.GetProperty("loginRequest"), Server.JsonSerializerOptions);
@@ -205,6 +223,7 @@ namespace Server_Messenger
             }
 
             await SendFriendshipsAsync(client, database, user.Id);
+            await SendChatsAsync(client, user.Id);
         }
 
         private static async Task SendFriendshipsAsync(WebSocket client, PersonalDataDatabase database, long userID)
@@ -224,6 +243,19 @@ namespace Server_Messenger
                 relationships,
             };
 
+            await Server.SendPayloadAsync(client, payload);
+        }
+
+        private static async Task SendChatsAsync(WebSocket client, long userID)
+        {
+            ChatDatabase chatDatabase = new();
+            Chat[] chats = await chatDatabase.GetChats(userID);
+
+            var payload = new
+            {
+                opCode = OpCode.SendChats,
+                chats,
+            };
             await Server.SendPayloadAsync(client, payload);
         }
     }

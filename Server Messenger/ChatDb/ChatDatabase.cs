@@ -1,0 +1,58 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using MongoDB.Driver;
+
+namespace Server_Messenger.ChatDb
+{
+    public class ChatDatabase
+    {
+        private readonly IMongoCollection<Chat> _chats;
+
+        public ChatDatabase()
+        {
+            MongoClient client = new(ReadConnString());
+            IMongoDatabase database = client.GetDatabase("Chats");
+            _chats = database.GetCollection<Chat>("Chats");
+        }
+
+        private static string ReadConnString()
+        {
+            return Server.Config.GetProperty("ConnectionStrings").GetProperty("ChatDatabase").GetString()!;
+        }
+
+        public async Task<Chat[]> GetChats(long id)
+        {
+            FilterDefinition<Chat> filter = Builders<Chat>.Filter.AnyEq(x => x.Members, id);
+            return [.. await _chats.Find(filter).ToListAsync()];
+        }
+
+        public async Task AddMessage(Message message, long receiverId)
+        {
+            string chatID = CombineIds([message.SenderId, receiverId]);
+            Chat chat = await _chats.Find(x => x.ChatID == chatID).FirstOrDefaultAsync();
+
+            if (chat != null)
+            {
+                chat.Messages.Add(message);
+                FilterDefinition<Chat> filter = Builders<Chat>.Filter.Eq(x => x.ChatID, chatID);
+                await _chats.ReplaceOneAsync(filter, chat);
+            }
+            else
+            {
+                chat = new Chat()
+                {
+                    Members = [message.SenderId, receiverId],
+                    Messages = [message],
+                    ChatID = chatID
+                };
+
+                await _chats.InsertOneAsync(chat);
+            }
+        }
+        private static string CombineIds(long[] ids)
+        {
+            Array.Sort(ids);
+            return string.Join("-", ids);
+        }
+    }
+}

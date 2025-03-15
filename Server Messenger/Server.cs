@@ -140,6 +140,9 @@ namespace Server_Messenger
                     case OpCode.UpdateRelationship:
                         await HandleUserRequests.HandleRelationshipUpdateAsync(client, message);
                         break;
+                    case OpCode.UserSentChatMessage:
+                        await HandleUserRequests.HandleChatMessageAsync(message);
+                        break;
                 }
             }
             catch (InvalidOperationException ex)
