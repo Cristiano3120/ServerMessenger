@@ -11,7 +11,7 @@ namespace Server_Messenger.Json
         {
             public override User Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
             {
-                using (var doc = JsonDocument.ParseValue(ref reader))
+                using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
                 {
                     JsonElement root = doc.RootElement;
 
@@ -67,7 +67,7 @@ namespace Server_Messenger.Json
 
             public override Relationship? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
             {
-                using (var doc = JsonDocument.ParseValue(ref reader))
+                using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
                 {
                     JsonElement root = doc.RootElement;
 

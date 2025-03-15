@@ -22,7 +22,7 @@ namespace Server_Messenger.PersonalDataDb
 
         public PersonalDataDbContext CreateDbContext(string[] args)
         {
-            var optionsBuilder = new DbContextOptionsBuilder<PersonalDataDbContext>();
+            DbContextOptionsBuilder<PersonalDataDbContext> optionsBuilder = new();
 
             IConfigurationRoot configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())

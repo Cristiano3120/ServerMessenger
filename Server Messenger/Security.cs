@@ -31,7 +31,7 @@ namespace Server_Messenger
             var password = Server.Config.GetProperty("DatabaseAes").GetProperty("password").GetString()!;
             var salt = Encoding.UTF8.GetBytes(Server.Config.GetProperty("DatabaseAes").GetProperty("salt").GetString()!);
 
-            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 500000, HashAlgorithmName.SHA256);
+            using Rfc2898DeriveBytes pbkdf2 = new(password, salt, 500000, HashAlgorithmName.SHA256);
             _databaseAes = Aes.Create();
             _databaseAes.Key = pbkdf2.GetBytes(32);
             _databaseAes.IV = pbkdf2.GetBytes(16);
@@ -61,11 +61,11 @@ namespace Server_Messenger
                 _ => throw new InvalidOperationException("TParam has an invalid type. Needs to be of type byte[] or string."),
             };
 
-            using (var ms = new MemoryStream())
+            using (MemoryStream ms = new())
             {
                 using (ICryptoTransform encryptor = _databaseAes!.CreateEncryptor())
                 {
-                    using (var cryptoStream = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+                    using (CryptoStream cryptoStream = new(ms, encryptor, CryptoStreamMode.Write))
                     {
                         cryptoStream.Write(dataBytes, 0, dataBytes.Length);
                         cryptoStream.FlushFinalBlock();
@@ -101,11 +101,11 @@ namespace Server_Messenger
 
             if (ClientAes.TryGetValue(client, out Aes? aes))
             {
-                using (var ms = new MemoryStream())
+                using (MemoryStream ms = new())
                 {
                     using (ICryptoTransform encryptor = aes.CreateEncryptor())
                     {
-                        using (var cryptoStream = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+                        using (CryptoStream cryptoStream = new(ms, encryptor, CryptoStreamMode.Write))
                         {
                             cryptoStream.Write(dataToEncrypt, 0, dataToEncrypt.Length);
                             cryptoStream.FlushFinalBlock();
@@ -145,19 +145,24 @@ namespace Server_Messenger
             };
 
             using ICryptoTransform decryptor = _databaseAes!.CreateDecryptor();
-            using var ms = new MemoryStream(encryptedBytes);
-            using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-            using var resultStream = new MemoryStream();
-            cs.CopyTo(resultStream);
-            var decryptedBytes = resultStream.ToArray();
-
-            TReturn? @return = default;
-            return @return switch
+            using (MemoryStream ms = new(encryptedBytes))
             {
-                _ when typeof(TReturn) == typeof(byte[]) => (TReturn)(object)decryptedBytes,
-                _ when typeof(TReturn) == typeof(string) => (TReturn)(object)Encoding.UTF8.GetString(decryptedBytes),
-                _ => throw new InvalidOperationException("TReturn has an invalid type. Needs to be of type byte[] or string."),
-            };
+                using (CryptoStream cs = new(ms, decryptor, CryptoStreamMode.Read))
+                {
+                    using MemoryStream resultStream = new();
+
+                    cs.CopyTo(resultStream);
+                    var decryptedBytes = resultStream.ToArray();
+
+                    TReturn? @return = default;
+                    return @return switch
+                    {
+                        _ when typeof(TReturn) == typeof(byte[]) => (TReturn)(object)decryptedBytes,
+                        _ when typeof(TReturn) == typeof(string) => (TReturn)(object)Encoding.UTF8.GetString(decryptedBytes),
+                        _ => throw new InvalidOperationException("TReturn has an invalid type. Needs to be of type byte[] or string."),
+                    };
+                }      
+            }   
         }
 
         /// <summary>
@@ -191,12 +196,16 @@ namespace Server_Messenger
             {
                 ICryptoTransform decryptor = aes.CreateDecryptor();
 
-                using var ms = new MemoryStream(encryptedData);
-                using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
-                using var resultStream = new MemoryStream();
-                cs.CopyTo(resultStream);
+                using (MemoryStream ms = new(encryptedData))
+                {
+                    using (CryptoStream cs = new(ms, decryptor, CryptoStreamMode.Read))
+                    {
+                        using MemoryStream resultStream = new();
+                        cs.CopyTo(resultStream);
 
-                return resultStream.ToArray();
+                        return resultStream.ToArray();
+                    }   
+                }          
             }
 
             throw new InvalidOperationException("Client data not found.");
@@ -211,7 +220,7 @@ namespace Server_Messenger
 
         public static byte[] CompressData(byte[] data)
         {
-            using var compressor = new Compressor(new CompressionOptions(1));
+            using Compressor compressor = new(new CompressionOptions(1));
             var compressedData = compressor.Wrap(data);
             return compressedData.Length >= data.Length
                 ? data
@@ -222,7 +231,7 @@ namespace Server_Messenger
         {
             try
             {
-                using var decompressor = new Decompressor();
+                using Decompressor decompressor = new();
                 return decompressor.Unwrap(data);
             }
             catch (Exception)
@@ -235,16 +244,18 @@ namespace Server_Messenger
 
         public static string Hash(string data)
         {
-            using var rng = RandomNumberGenerator.Create();
-            byte[] saltBytes = new byte[16];
-            rng.GetBytes(saltBytes);
+            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+            {
+                byte[] saltBytes = new byte[16];
+                rng.GetBytes(saltBytes);
 
-            using var pbkdf2 = new Rfc2898DeriveBytes(data, saltBytes, 100000, HashAlgorithmName.SHA256);
-            byte[] dataHash = pbkdf2.GetBytes(32);
+                using Rfc2898DeriveBytes pbkdf2 = new(data, saltBytes, 100000, HashAlgorithmName.SHA256);
+                byte[] dataHash = pbkdf2.GetBytes(32);
 
-            //[..array, ..array] is the same as calling .Concat()
-            byte[] dataSaltHash = [.. dataHash, .. saltBytes];
-            return Convert.ToBase64String(dataSaltHash);
+                //[..array, ..array] is the same as calling .Concat()
+                byte[] dataSaltHash = [.. dataHash, .. saltBytes];
+                return Convert.ToBase64String(dataSaltHash);
+            }
         }
     }
 }

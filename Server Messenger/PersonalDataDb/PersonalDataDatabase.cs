@@ -315,7 +315,7 @@ namespace Server_Messenger.PersonalDataDb
                     if (searchedUser == null)
                         return (new NpgsqlExceptionInfos(NpgsqlExceptions.NoDataEntrys), null);
 
-                    var relationship = (Relationship)searchedUser;
+                    Relationship relationship = (Relationship)searchedUser;
                     relationship.RelationshipState = relation.RelationshipState;
 
                     relationships.Add(relationship);
