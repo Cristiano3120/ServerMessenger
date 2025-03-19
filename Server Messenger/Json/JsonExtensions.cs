@@ -18,6 +18,10 @@ namespace Server_Messenger.Json
         public static OpCode GetOpCode(this JsonElement property)
             => (OpCode)property.GetProperty("opCode").GetByte();
 
+        public static SettingsUpdate GetSettingsUpdate(this JsonElement property)
+            => (SettingsUpdate)property.GetProperty("settingsUpdate").GetByte();
+                
+
         /// <summary>
         /// Extrcats the key and the iv from the <see cref="JsonElement"/>
         /// </summary>

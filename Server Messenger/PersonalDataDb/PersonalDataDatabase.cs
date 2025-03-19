@@ -178,7 +178,7 @@ namespace Server_Messenger.PersonalDataDb
 
                 Relationships? blocked = await _dbContext.Relationships
                     .FirstOrDefaultAsync(x => x.RelationshipState == RelationshipState.Blocked && x.SenderId == affectedID && x.ReceiverId == user.Id);
-    
+
                 if (blocked != null)
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.RequestedUserIsBlocked);
 
@@ -336,6 +336,18 @@ namespace Server_Messenger.PersonalDataDb
 
         #endregion
 
+        #region Settings
+
+        public void ChangeProfilePicture(ProfilePictureUpdate profilePictureUpdate)
+        {
+            User user = _dbContext.Users.First(x => x.Id == profilePictureUpdate.Id);
+            user.ProfilePicture = Security.EncryptAesDatabase<byte[], byte[]>(profilePictureUpdate.NewProfilePicture);
+            _dbContext.SaveChanges();
+        }
+
+
+        #endregion
+
         #region Tests
 
         public async Task AddTestUsersToDb()
@@ -372,7 +384,6 @@ namespace Server_Messenger.PersonalDataDb
                 user.Username = Security.EncryptAesDatabase<string, string>(decryptedUsername);
             }
         }
-
 
         private async Task RemoveTestUsers()
         {

@@ -105,7 +105,7 @@ namespace Server_Messenger
                     Logger.LogPayload(ConsoleColor.Green, completeMessage, "[RECEIVED]:");
                     ClearMs(ms);
 
-                    await HandleReceivedMessageAsync(client, JsonDocument.Parse(completeMessage).RootElement);
+                    await HandleReceivedMessageAsync(client, JsonDocument.Parse(completeMessage));
                 }
                 catch (Exception ex)
                 {
@@ -117,8 +117,9 @@ namespace Server_Messenger
             await ClosingConnAsync(client);
         }
 
-        private static async Task HandleReceivedMessageAsync(WebSocket client, JsonElement message)
+        private static async Task HandleReceivedMessageAsync(WebSocket client, JsonDocument jsonDocument)
         {
+            JsonElement message = jsonDocument.RootElement;
             OpCode code = message.GetOpCode();
             try
             {
@@ -142,6 +143,9 @@ namespace Server_Messenger
                         break;
                     case OpCode.UserSentChatMessage:
                         await HandleUserRequests.HandleChatMessageAsync(message);
+                        break;
+                    case OpCode.SettingsUpdate:
+                        HandleSettingsUpdate.HandleReceivedMessage(ref message);
                         break;
                 }
             }
@@ -260,17 +264,13 @@ namespace Server_Messenger
             var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
                 $" If you did not attempt to create an account, please disregard this email.";
 
-#pragma warning disable IDE0059
             MailMessage mail = new(fromAddress, toAddress, subject, body);
-
             SmtpClient smtpClient = new("smtp.gmail.com", 587)
             {
                 Credentials = new NetworkCredential(fromAddress, _emailPassword),
                 EnableSsl = true
             };
 
-            #pragma warning restore IDE0059
-            await Task.Delay(1); // Just so vs doesnt warn me
             //await smtpClient.SendMailAsync(mail);
         }
 

@@ -1,14 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Npgsql;
 
 namespace Server_Messenger
 {
     public static partial class Logger
     {
-        [GeneratedRegex("(\"profilePicture\": \")[^\"]*(\")")]
+        [GeneratedRegex("(\"(?:profilePicture|newProfilePicture)\": \")[^\"]*(\")")]
         private static partial Regex FilterProfilPicRegex();
 
         #region LogInformation
