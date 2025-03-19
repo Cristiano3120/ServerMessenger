@@ -47,7 +47,7 @@ namespace Server_Messenger.PersonalDataDb
 
                 user.Token = GenerateToken(user);
 
-                User encryptedUser = Security.EncryptAesDatabase(user);
+                User encryptedUser = await Security.EncryptAesDatabaseAsync(user);
 
                 await _dbContext.Users.AddAsync(encryptedUser);
                 await _dbContext.SaveChangesAsync();
@@ -101,8 +101,8 @@ namespace Server_Messenger.PersonalDataDb
             try
             {
                 (string email, string password, bool stayLoggedIn) = loginRequest;
-                string encryptedEmail = Security.EncryptAesDatabase<string, string>(email);
-                string encryptedPassword = Security.EncryptAesDatabase<string, string>(password);
+                string encryptedEmail = await Security.EncryptAesDatabaseAsync<string, string>(email);
+                string encryptedPassword = await Security.EncryptAesDatabaseAsync<string, string>(password);
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == encryptedEmail && x.Password == encryptedPassword);
 
                 if (user == null)
@@ -111,7 +111,7 @@ namespace Server_Messenger.PersonalDataDb
                 if (!stayLoggedIn)
                     user.Token = "";
 
-                return (Security.DecryptAesDatabase(user), new NpgsqlExceptionInfos());
+                return (await Security.DecryptAesDatabaseAsync(user), new NpgsqlExceptionInfos());
             }
             catch (NpgsqlException ex)
             {
@@ -129,12 +129,12 @@ namespace Server_Messenger.PersonalDataDb
         {
             try
             {
-                string encryptedToken = Security.EncryptAesDatabase<string, string>(token);
+                string encryptedToken = await Security.EncryptAesDatabaseAsync<string, string>(token);
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Token == encryptedToken);
 
                 return user == null
                     ? (null, new NpgsqlExceptionInfos(NpgsqlExceptions.TokenInvalid))
-                    : (Security.DecryptAesDatabase(user), new NpgsqlExceptionInfos());
+                    : (await Security.DecryptAesDatabaseAsync(user), new NpgsqlExceptionInfos());
             }
             catch (NpgsqlException ex)
             {
@@ -257,11 +257,11 @@ namespace Server_Messenger.PersonalDataDb
         {
             try
             {
-                string encryptedUsername = Security.EncryptAesDatabase<string, string>(username);
-                string encryptedHashTag = Security.EncryptAesDatabase<string, string>(hashTag);
+                string encryptedUsername = await Security.EncryptAesDatabaseAsync<string, string>(username);
+                string encryptedHashTag = await Security.EncryptAesDatabaseAsync<string, string>(hashTag);
 
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == encryptedUsername && x.HashTag == encryptedHashTag);
-                return Security.DecryptAesDatabase(user);
+                return await Security.DecryptAesDatabaseAsync(user);
             }
             catch (NpgsqlException ex)
             {
@@ -280,7 +280,7 @@ namespace Server_Messenger.PersonalDataDb
             try
             {
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
-                return Security.DecryptAesDatabase(user);
+                return await Security.DecryptAesDatabaseAsync(user);
             }
             catch (NpgsqlException ex)
             {
@@ -310,7 +310,7 @@ namespace Server_Messenger.PersonalDataDb
                         : relation.SenderId;
 
                     User? searchedUser = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == searchedUserId);
-                    searchedUser = Security.DecryptAesDatabase(searchedUser);
+                    searchedUser = await Security.DecryptAesDatabaseAsync(searchedUser);
 
                     if (searchedUser == null)
                         return (new NpgsqlExceptionInfos(NpgsqlExceptions.NoDataEntrys), null);
@@ -338,11 +338,12 @@ namespace Server_Messenger.PersonalDataDb
 
         #region Settings
 
-        public void ChangeProfilePicture(ProfilePictureUpdate profilePictureUpdate)
+        public async Task ChangeProfilePicture(ProfilePictureUpdate profilePictureUpdate)
         {
-            User user = _dbContext.Users.First(x => x.Id == profilePictureUpdate.Id);
-            user.ProfilePicture = Security.EncryptAesDatabase<byte[], byte[]>(profilePictureUpdate.NewProfilePicture);
-            _dbContext.SaveChanges();
+            byte[] encryptedProfilePicture = await Security.EncryptAesDatabaseAsync<byte[], byte[]>(profilePictureUpdate.NewProfilePicture);
+
+            await _dbContext.Users.Where(x => x.Id == profilePictureUpdate.Id)
+                .ExecuteUpdateAsync(x => x.SetProperty(x => x.ProfilePicture, encryptedProfilePicture));
         }
 
 
@@ -356,38 +357,39 @@ namespace Server_Messenger.PersonalDataDb
 
             User user = new()
             {
-                Biography = Security.EncryptAesDatabase<string, string>(""),
+                Biography = await Security.EncryptAesDatabaseAsync<string, string>(""),
                 Birthday = DateOnly.MaxValue,
-                Email = Security.EncryptAesDatabase<string, string>("Cris@cris.com"),
-                Password = Security.EncryptAesDatabase<string, string>("CrisCris"),
+                Email = await Security.EncryptAesDatabaseAsync<string, string>("Cris@cris.com"),
+                Password = await Security.EncryptAesDatabaseAsync<string, string>("CrisCris"),
                 FaEnabled = false,
-                HashTag = Security.EncryptAesDatabase<string, string>("#Cris"),
-                Username = Security.EncryptAesDatabase<string, string>("Cris"),
+                HashTag = await Security.EncryptAesDatabaseAsync<string, string>("#Cris"),
+                Username = await Security.EncryptAesDatabaseAsync<string, string>("Cris"),
                 ProfilePicture = []
             };
 
             for (int i = 10; i < 15; i++)
             {
-                string decryptedEmail = Security.DecryptAesDatabase<string, string>(user.Email);
-                string decryptedUsername = Security.DecryptAesDatabase<string, string>(user.Username);
+                string decryptedEmail = await Security.DecryptAesDatabaseAsync<string, string>(user.Email);
+                string decryptedUsername = await Security.DecryptAesDatabaseAsync<string, string>(user.Username);
 
                 string str = $"{i}";
-                user.Email = Security.EncryptAesDatabase<string, string>(decryptedEmail.Insert(4, str));
-                user.Username = Security.EncryptAesDatabase<string, string>($"{decryptedUsername}{str}");
-                user.Token = Security.EncryptAesDatabase<string, string>($"{i}");
+                user.Email = await Security.EncryptAesDatabaseAsync<string, string>(decryptedEmail.Insert(4, str));
+                user.Username = await Security.EncryptAesDatabaseAsync<string, string>($"{decryptedUsername}{str}");
+                user.Token = await Security.EncryptAesDatabaseAsync<string, string>($"{i}");
                 user.Id = i;
 
                 await _dbContext.Users.AddAsync(user);
                 await _dbContext.SaveChangesAsync();
 
-                user.Email = Security.EncryptAesDatabase<string, string>(decryptedEmail);
-                user.Username = Security.EncryptAesDatabase<string, string>(decryptedUsername);
+                user.Email = await Security.EncryptAesDatabaseAsync<string, string>(decryptedEmail);
+                user.Username = await Security.EncryptAesDatabaseAsync<string, string>(decryptedUsername);
             }
         }
 
         private async Task RemoveTestUsers()
         {
-            IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Username != Security.EncryptAesDatabase<string, string>("Cris"));
+            string username = await Security.EncryptAesDatabaseAsync<string, string>("Cris");
+            IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Username != username);
 
             foreach (User user in testUsers)
             {

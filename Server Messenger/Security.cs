@@ -53,7 +53,7 @@ namespace Server_Messenger
 
         #region Encryption
 
-        public static TReturn EncryptAesDatabase<TParam, TReturn>(TParam dataToEncrypt) where TParam : class where TReturn : class
+        public static async Task<TReturn> EncryptAesDatabaseAsync<TParam, TReturn>(TParam dataToEncrypt) where TParam : class where TReturn : class
         {
             byte[] dataBytes = dataToEncrypt switch
             {
@@ -66,10 +66,10 @@ namespace Server_Messenger
             {
                 using (ICryptoTransform encryptor = _databaseAes!.CreateEncryptor())
                 {
-                    using (CryptoStream cryptoStream = new(ms, encryptor, CryptoStreamMode.Write))
+                    using (CryptoStream cryptoStream = new(ms, encryptor, CryptoStreamMode.Write, true))
                     {
-                        cryptoStream.Write(dataBytes, 0, dataBytes.Length);
-                        cryptoStream.FlushFinalBlock();
+                        await cryptoStream.WriteAsync(dataBytes);
+                        await cryptoStream.FlushFinalBlockAsync();
                     }
                 }
 
@@ -79,30 +79,30 @@ namespace Server_Messenger
             }
         }
 
-        public static User EncryptAesDatabase(User user)
+        public static async Task<User> EncryptAesDatabaseAsync(User user)
             => new()
             {
-                Username = EncryptAesDatabase<string, string>(user.Username),
-                HashTag = EncryptAesDatabase<string, string>(user.HashTag),
-                Email = EncryptAesDatabase<string, string>(user.Email),
-                Password = EncryptAesDatabase<string, string>(user.Password),
-                Biography = EncryptAesDatabase<string, string>(user.Biography),
-                ProfilePicture = EncryptAesDatabase<byte[], byte[]>(user.ProfilePicture),
-                Token = EncryptAesDatabase<string, string>(user.Token),
+                Username = await EncryptAesDatabaseAsync<string, string>(user.Username),
+                HashTag = await EncryptAesDatabaseAsync<string, string>(user.HashTag),
+                Email = await EncryptAesDatabaseAsync<string, string>(user.Email),
+                Password = await EncryptAesDatabaseAsync<string, string>(user.Password),
+                Biography = await EncryptAesDatabaseAsync<string, string>(user.Biography),
+                ProfilePicture = await EncryptAesDatabaseAsync<byte[], byte[]>(user.ProfilePicture),
+                Token = await EncryptAesDatabaseAsync<string, string>(user.Token),
                 Birthday = user.Birthday!.Value,
                 FaEnabled = user.FaEnabled,
                 Id = user.Id,
             };
 
-        public static Message EncryptAesDatabase(Message message)
+        public static async Task<Message> EncryptAesDatabaseAsync(Message message)
         {
             return message with
             {
-                Content = EncryptAesDatabase<string, string>(message.Content),
+                Content = await EncryptAesDatabaseAsync<string, string>(message.Content),
             };
         }
-            
-        public static byte[] EncryptAes(WebSocket client, byte[] dataToEncrypt)
+
+        public static async Task<byte[]> EncryptAesAsync(WebSocket client, byte[] dataToEncrypt)
         {
             if (dataToEncrypt.Length == 0)
                 throw new InvalidOperationException("Data to encrypt is empty.");
@@ -113,10 +113,10 @@ namespace Server_Messenger
                 {
                     using (ICryptoTransform encryptor = aes.CreateEncryptor())
                     {
-                        using (CryptoStream cryptoStream = new(ms, encryptor, CryptoStreamMode.Write))
+                        using (CryptoStream cryptoStream = new(ms, encryptor, CryptoStreamMode.Write, true))
                         {
-                            cryptoStream.Write(dataToEncrypt, 0, dataToEncrypt.Length);
-                            cryptoStream.FlushFinalBlock();
+                            await cryptoStream.WriteAsync(dataToEncrypt);
+                            await cryptoStream.FlushFinalBlockAsync();
                         }
                     }
 
@@ -131,11 +131,11 @@ namespace Server_Messenger
 
         #region Decryption
 
-        public static byte[] DecryptMessage(WebSocket client, byte[] encryptedData)
+        public static async Task<byte[]> DecryptMessageAsync(WebSocket client, byte[] encryptedData)
         {
             try
             {
-                return DecryptAes(client, encryptedData);
+                return await DecryptAesAsync(client, encryptedData);
             }
             catch
             {
@@ -143,7 +143,7 @@ namespace Server_Messenger
             }
         }
 
-        public static TReturn DecryptAesDatabase<TParam, TReturn>(TParam encryptedData) where TParam : class where TReturn : class
+        public static async Task<TReturn> DecryptAesDatabaseAsync<TParam, TReturn>(TParam encryptedData) where TParam : class where TReturn : class
         {
             byte[] encryptedBytes = encryptedData switch
             {
@@ -159,7 +159,7 @@ namespace Server_Messenger
                 {
                     using MemoryStream resultStream = new();
 
-                    cs.CopyTo(resultStream);
+                    await cs.CopyToAsync(resultStream);
                     var decryptedBytes = resultStream.ToArray();
 
                     TReturn? @return = default;
@@ -178,34 +178,33 @@ namespace Server_Messenger
         /// </summary>
         /// <param name="user"></param>
         /// <returns></returns>
-        public static User? DecryptAesDatabase(User? user)
+        public static async Task<User?> DecryptAesDatabaseAsync(User? user)
         {
-            if (user == null)
-                return null;
-
-            return new()
-            {
-                Username = DecryptAesDatabase<string, string>(user.Username),
-                HashTag = DecryptAesDatabase<string, string>(user.HashTag),
-                Email = DecryptAesDatabase<string, string>(user.Email),
-                Password = "",
-                Biography = DecryptAesDatabase<string, string>(user.Biography),
-                ProfilePicture = DecryptAesDatabase<byte[], byte[]>(user.ProfilePicture),
-                Token = DecryptAesDatabase<string, string>(user.Token),
-                Birthday = user.Birthday!.Value,
-                FaEnabled = user.FaEnabled,
-                Id = user.Id,
-            };
+            return user == null
+                ? null
+                : new()
+                {
+                    Username = await DecryptAesDatabaseAsync<string, string>(user.Username),
+                    HashTag = await DecryptAesDatabaseAsync<string, string>(user.HashTag),
+                    Email = await DecryptAesDatabaseAsync<string, string>(user.Email),
+                    Password = "",
+                    Biography = await DecryptAesDatabaseAsync<string, string>(user.Biography),
+                    ProfilePicture = await DecryptAesDatabaseAsync<byte[], byte[]>(user.ProfilePicture),
+                    Token = await DecryptAesDatabaseAsync<string, string>(user.Token),
+                    Birthday = user.Birthday!.Value,
+                    FaEnabled = user.FaEnabled,
+                    Id = user.Id,
+                };
         }
 
-        public static List<Message> DecryptAesDatabase(List<Message> messages)
+        public static async Task<List<Message>> DecryptAesDatabaseAsync(List<Message> messages)
         {
             List<Message> decryptedMessages = new();
             foreach (Message message in messages)
             {
                 Message decryptedMessage = message with
                 {
-                    Content = DecryptAesDatabase<string, string>(message.Content)
+                    Content = await DecryptAesDatabaseAsync<string, string>(message.Content)
                 };
                 decryptedMessages.Add(decryptedMessage);
             }
@@ -213,7 +212,7 @@ namespace Server_Messenger
             return decryptedMessages;
         }
 
-        public static byte[] DecryptAes(WebSocket client, byte[] encryptedData)
+        public static async Task<byte[]> DecryptAesAsync(WebSocket client, byte[] encryptedData)
         {
             if (ClientAes.TryGetValue(client, out Aes? aes))
             {
@@ -224,7 +223,7 @@ namespace Server_Messenger
                     using (CryptoStream cs = new(ms, decryptor, CryptoStreamMode.Read))
                     {
                         using MemoryStream resultStream = new();
-                        cs.CopyTo(resultStream);
+                        await cs.CopyToAsync(resultStream);
 
                         return resultStream.ToArray();
                     }

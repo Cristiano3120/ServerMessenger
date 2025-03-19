@@ -98,7 +98,7 @@ namespace Server_Messenger
                     }
 
                     byte[] completeBytes = ms.ToArray();
-                    byte[] decryptedData = Security.DecryptMessage(client, completeBytes);
+                    byte[] decryptedData = await Security.DecryptMessageAsync(client, completeBytes);
                     byte[] decompressedBytes = Security.DecompressData(decryptedData);
                     var completeMessage = Encoding.UTF8.GetString(decompressedBytes);
 
@@ -145,7 +145,7 @@ namespace Server_Messenger
                         await HandleUserRequests.HandleChatMessageAsync(message);
                         break;
                     case OpCode.SettingsUpdate:
-                        HandleSettingsUpdate.HandleReceivedMessage(ref message);
+                        await HandleSettingsUpdate.HandleReceivedMessage(jsonDocument);
                         break;
                 }
             }
@@ -211,7 +211,7 @@ namespace Server_Messenger
                 var compressedData = Security.CompressData(buffer);
 
                 if (encryptionMode == EncryptionMode.Aes)
-                    buffer = Security.EncryptAes(client, compressedData);
+                    buffer = await Security.EncryptAesAsync(client, compressedData);
 
                 await client.SendAsync(buffer, WebSocketMessageType.Binary, true, CancellationToken.None);
 
@@ -257,21 +257,22 @@ namespace Server_Messenger
 
         public static async Task SendEmail(User user, int verificationCode)
         {
-            Logger.LogInformation($"Sending an email. Code: {verificationCode}");
-            var fromAddress = "ccardoso7002@gmail.com";
-            var toAddress = $"{user.Email}";
-            var subject = $"Verification Email";
-            var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
-                $" If you did not attempt to create an account, please disregard this email.";
+            Logger.LogInformation($"Sending an email to {user.Email}. Code: {verificationCode}");
+            //var fromAddress = "ccardoso7002@gmail.com";
+            //var toAddress = $"{user.Email}";
+            //var subject = $"Verification Email";
+            //var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
+            //    $" If you did not attempt to create an account, please disregard this email.";
 
-            MailMessage mail = new(fromAddress, toAddress, subject, body);
-            SmtpClient smtpClient = new("smtp.gmail.com", 587)
-            {
-                Credentials = new NetworkCredential(fromAddress, _emailPassword),
-                EnableSsl = true
-            };
+            //MailMessage mail = new(fromAddress, toAddress, subject, body);
+            //SmtpClient smtpClient = new("smtp.gmail.com", 587)
+            //{
+            //    Credentials = new NetworkCredential(fromAddress, _emailPassword),
+            //    EnableSsl = true
+            //};
 
             //await smtpClient.SendMailAsync(mail);
+            await Task.Delay(1);
         }
 
         /// <summary>

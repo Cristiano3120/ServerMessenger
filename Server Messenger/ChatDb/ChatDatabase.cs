@@ -26,7 +26,7 @@ namespace Server_Messenger.ChatDb
             Chat[] chats = [.. await _chats.Find(filter).ToListAsync()];
             for (int i = 0; i < chats.Length; i++)
             {
-                chats[i].Messages = Security.DecryptAesDatabase(chats[i].Messages);
+                chats[i].Messages = await Security.DecryptAesDatabaseAsync(chats[i].Messages);
             }
 
             return chats;
@@ -34,7 +34,7 @@ namespace Server_Messenger.ChatDb
 
         public async Task AddMessage(Message message, long receiverId)
         {
-            message = Security.EncryptAesDatabase(message);
+            message = await Security.EncryptAesDatabaseAsync(message);
             string chatID = CombineIds([message.SenderId, receiverId]);
             Chat chat = await _chats.Find(x => x.ChatID == chatID).FirstOrDefaultAsync();
 
