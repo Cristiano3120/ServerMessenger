@@ -13,7 +13,6 @@ namespace Server_Messenger.PersonalDataDb
         public partial Regex NpgsqlExceptionKeyRegex();
 
         private readonly TimeSpan _usernameChangeCooldown = TimeSpan.FromDays(3);
-        private readonly string _connectionString = ReadConnString();
         private readonly PersonalDataDbContext _dbContext;
 
         #region Init
@@ -21,7 +20,7 @@ namespace Server_Messenger.PersonalDataDb
         public PersonalDataDatabase()
         {
             DbContextOptions<PersonalDataDbContext> options = new DbContextOptionsBuilder<PersonalDataDbContext>()
-                .UseNpgsql(_connectionString).Options;
+                .UseNpgsql(ReadConnString()).Options;
 
             _dbContext = new PersonalDataDbContext(options);
 
