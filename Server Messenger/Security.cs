@@ -2,7 +2,6 @@
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Query.Expressions.Internal;
 using ZstdNet;
 
 namespace Server_Messenger
@@ -10,44 +9,31 @@ namespace Server_Messenger
     internal static class Security
     {
         public static ConcurrentDictionary<WebSocket, Aes> ClientAes { get; private set; } = new();
-        private static RSAParameters _publicKey;
-        private static Aes? _databaseAes;
-        private static RSA? _rsa;
+        private static readonly Aes _databaseAes = Aes.Create();
+        private static readonly RSA _rsa = RSA.Create();
 
-        #region Init
-        public static void Init()
-        {
-            InitRSA();
-            InitDatabaseAes();
-        }
-
-        private static void InitRSA()
-        {
-            _rsa = RSA.Create();
-            _publicKey = _rsa.ExportParameters(false);
-        }
-
-        private static void InitDatabaseAes()
+        static Security()
         {
             var password = Server.Config.GetProperty("DatabaseAes").GetProperty("password").GetString()!;
             var salt = Encoding.UTF8.GetBytes(Server.Config.GetProperty("DatabaseAes").GetProperty("salt").GetString()!);
 
-            using Rfc2898DeriveBytes pbkdf2 = new(password, salt, 500000, HashAlgorithmName.SHA256);
-            _databaseAes = Aes.Create();
-            _databaseAes.Key = pbkdf2.GetBytes(32);
-            _databaseAes.IV = pbkdf2.GetBytes(16);
+            using (Rfc2898DeriveBytes pbkdf2 = new(password, salt, 500000, HashAlgorithmName.SHA256))
+            {
+                _databaseAes.Key = pbkdf2.GetBytes(32);
+                _databaseAes.IV = pbkdf2.GetBytes(16);
+            }
         }
-
-        #endregion
 
         public static async Task SendClientRSAAsync(WebSocket client)
         {
+            RSAParameters publicKey = _rsa.ExportParameters(false);
             var payload = new
             {
                 opCode = OpCode.SendRSA,
-                modulus = Convert.ToBase64String(_publicKey.Modulus!),
-                exponent = Convert.ToBase64String(_publicKey.Exponent!),
+                modulus = Convert.ToBase64String(publicKey.Modulus!),
+                exponent = Convert.ToBase64String(publicKey.Exponent!),
             };
+
             await Server.SendPayloadAsync(client, payload, EncryptionMode.None);
         }
 
@@ -83,7 +69,7 @@ namespace Server_Messenger
             => new()
             {
                 Username = await EncryptAesDatabaseAsync<string, string>(user.Username),
-                HashTag = await EncryptAesDatabaseAsync<string, string>(user.HashTag),
+                Hashtag = await EncryptAesDatabaseAsync<string, string>(user.Hashtag),
                 Email = await EncryptAesDatabaseAsync<string, string>(user.Email),
                 Password = await EncryptAesDatabaseAsync<string, string>(user.Password),
                 Biography = await EncryptAesDatabaseAsync<string, string>(user.Biography),
@@ -185,7 +171,7 @@ namespace Server_Messenger
                 : new()
                 {
                     Username = await DecryptAesDatabaseAsync<string, string>(user.Username),
-                    HashTag = await DecryptAesDatabaseAsync<string, string>(user.HashTag),
+                    Hashtag = await DecryptAesDatabaseAsync<string, string>(user.Hashtag),
                     Email = await DecryptAesDatabaseAsync<string, string>(user.Email),
                     Password = "",
                     Biography = await DecryptAesDatabaseAsync<string, string>(user.Biography),

@@ -24,7 +24,7 @@ namespace Server_Messenger.Json
                     {
                         ProfilePicture = root.GetProperty("profilePicture").GetBytesFromBase64(),
                         Username = root.GetProperty("username").GetString()!,
-                        HashTag = root.GetProperty("hashTag").GetString()!,
+                        Hashtag = root.GetProperty("hashtag").GetString()!,
                         Email = root.GetProperty("email").GetString()!,
                         Password = root.GetProperty("password").GetString()!,
                         Biography = root.GetProperty("biography").GetString()!,
@@ -82,7 +82,7 @@ namespace Server_Messenger.Json
                         {
                             ProfilePicture = root.GetProperty("profilePicture").GetBytesFromBase64(),
                             Username = root.GetProperty("username").GetString()!,
-                            HashTag = root.GetProperty("hashTag").GetString()!,
+                            Hashtag = root.GetProperty("Hashtag").GetString()!,
                             Biography = root.GetProperty("biography").GetString()!,
                             Id = long.Parse(root.GetProperty("id").GetString()!),
                             RelationshipState = Enum.Parse<RelationshipState>(root.GetProperty("relationshipState").GetString()!),

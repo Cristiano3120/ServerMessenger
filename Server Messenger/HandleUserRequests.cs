@@ -127,7 +127,7 @@ namespace Server_Messenger
             if (affectedClientId == -1)
             {
                 PersonalDataDatabase database = new();
-                Relationship user = (Relationship)await database.GetUser(pRelationshipUpdate.Relationship.Username, pRelationshipUpdate.Relationship.HashTag);
+                Relationship user = (Relationship)await database.GetUser(pRelationshipUpdate.Relationship.Username, pRelationshipUpdate.Relationship.Hashtag);
                 affectedClientId = user!.Id;
             }
 

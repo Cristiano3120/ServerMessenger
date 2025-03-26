@@ -33,7 +33,7 @@ namespace Server_Messenger.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ProfilePicture = table.Column<byte[]>(type: "bytea", nullable: false),
                     Username = table.Column<string>(type: "text", nullable: false),
-                    HashTag = table.Column<string>(type: "text", nullable: false),
+                    Hashtag = table.Column<string>(type: "text", nullable: false),
                     Email = table.Column<string>(type: "text", nullable: false),
                     Password = table.Column<string>(type: "text", nullable: false),
                     Biography = table.Column<string>(type: "text", nullable: false),

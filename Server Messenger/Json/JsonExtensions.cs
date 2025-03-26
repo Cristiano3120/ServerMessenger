@@ -13,11 +13,17 @@ namespace Server_Messenger.Json
         /// Needs to be called on the <c>root</c> of the <see cref="JsonElement"/>.
         /// Converts the data that is sent as an byte to the <see cref="OpCode"/> equivalent.
         /// </summary>
-        /// <param name="property">The <c>code</c> as an <see cref="JsonElement"/> property</param>
-        /// <returns><returns><c>Returns</c> the from the Client received OpCode</returns>
+        /// <param name="property">The <see cref="Enum"/> as an <see cref="JsonElement"/> property</param>
+        /// <returns><c>Returns</c> the from the Client received <see cref="OpCode"/></returns>
         public static OpCode GetOpCode(this JsonElement property)
             => (OpCode)property.GetProperty("opCode").GetByte();
 
+        /// <summary>
+        /// Needs to be called on the <c>root</c> of the <see cref="JsonElement"/>.
+        /// Converts the data that is sent as an byte to the <see cref="SettingsUpdate"/> equivalent.
+        /// </summary>
+        /// <param name="property">The <see cref="Enum"/> as an <see cref="JsonElement"/> property</param>
+        /// <returns><c>Returns</c> the from the Client received <see cref="SettingsUpdate"/></returns>
         public static SettingsUpdate GetSettingsUpdate(this JsonElement property)
             => (SettingsUpdate)property.GetProperty("settingsUpdate").GetByte();
                 
@@ -35,14 +41,6 @@ namespace Server_Messenger.Json
             aes.IV = Convert.FromBase64String(aesKeyData.Iv);
             return aes;
         }
-
-        /// <summary>
-        /// Needs to be called on a <c>property</c> not on the root
-        /// </summary>
-        /// <param name="property"></param>
-        /// <returns></returns>
-        public static RelationshipState GetRelationshipState(this JsonElement property)
-            => (RelationshipState)property.GetByte();
 
         #endregion
 

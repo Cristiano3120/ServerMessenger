@@ -1,5 +1,4 @@
-﻿using System.Net.Mail;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
@@ -33,7 +32,6 @@ namespace Server_Messenger
             JsonSerializerOptions.WriteIndented = true;
 
             _ = Task.Run(ListenForConnectionsAsync);
-            Security.Init();
 
             PersonalDataDatabase personalDataDatabase = new();
             await personalDataDatabase.AddTestUsersToDb();
@@ -145,7 +143,7 @@ namespace Server_Messenger
                         await HandleUserRequests.HandleChatMessageAsync(message);
                         break;
                     case OpCode.SettingsUpdate:
-                        await HandleSettingsUpdate.HandleReceivedMessage(jsonDocument);
+                        await HandleSettingsUpdate.HandleReceivedMessage(client, jsonDocument);
                         break;
                 }
             }
@@ -261,7 +259,7 @@ namespace Server_Messenger
             //var fromAddress = "ccardoso7002@gmail.com";
             //var toAddress = $"{user.Email}";
             //var subject = $"Verification Email";
-            //var body = $"Hello {user.Username} {user.HashTag} this is your verification code: {verificationCode}." +
+            //var body = $"Hello {user.Username} {user.Hashtag} this is your verification code: {verificationCode}." +
             //    $" If you did not attempt to create an account, please disregard this email.";
 
             //MailMessage mail = new(fromAddress, toAddress, subject, body);

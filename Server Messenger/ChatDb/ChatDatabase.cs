@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using MongoDB.Driver;
 
 namespace Server_Messenger.ChatDb
@@ -56,6 +55,7 @@ namespace Server_Messenger.ChatDb
                 await _chats.InsertOneAsync(chat);
             }
         }
+
         private static string CombineIds(long[] ids)
         {
             Array.Sort(ids);

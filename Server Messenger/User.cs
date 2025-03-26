@@ -7,7 +7,7 @@ namespace Server_Messenger
     {
         public byte[] ProfilePicture { get; set; } = [];
         public string Username { get; set; } = "";
-        public string HashTag { get; set; } = "";
+        public string Hashtag { get; set; } = "";
         public string Email { get; set; } = "";
         public string Password { get; set; } = "";
         public string Biography { get; set; } = "";
@@ -15,6 +15,7 @@ namespace Server_Messenger
         public DateOnly? Birthday { get; set; }
         public bool FaEnabled { get; set; }
         public string Token { get; set; } = "";
+        public DateTime? LastUsernameChange { get; set; } = null;
 
         public static explicit operator Relationship(User? user)
         {
@@ -22,7 +23,7 @@ namespace Server_Messenger
             return new()
             {
                 Username = user.Username,
-                HashTag = user.HashTag,
+                Hashtag = user.Hashtag,
                 Id = user.Id,
                 Biography = user.Biography,
                 ProfilePicture = user.ProfilePicture,
@@ -32,7 +33,7 @@ namespace Server_Messenger
         public IEnumerator<(string name, string value)> GetEnumerator()
         {
             yield return (nameof(Username).ToCamelCase(), Username);
-            yield return (nameof(HashTag).ToCamelCase(), HashTag);
+            yield return (nameof(Hashtag).ToCamelCase(), Hashtag);
             yield return (nameof(Email).ToCamelCase(), Email);
             yield return (nameof(Password).ToCamelCase(), Password);
             yield return (nameof(Biography).ToCamelCase(), Biography);

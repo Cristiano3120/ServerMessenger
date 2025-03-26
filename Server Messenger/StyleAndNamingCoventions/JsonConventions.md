@@ -67,7 +67,7 @@ public string Username { get; set; }
 ```json
 {
   "username": "Cris",
-    "hashTag": "#Cris",
+    "Hashtag": "#Cris",
     "email": "Cris@cris.com",
     "password": "",
     "biography": "Cris",

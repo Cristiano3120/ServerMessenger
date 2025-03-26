@@ -1,8 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Npgsql;
-using System.Data;
+﻿using System.Data;
+using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Server_Messenger.PersonalDataDb
 {
@@ -11,6 +12,7 @@ namespace Server_Messenger.PersonalDataDb
         [GeneratedRegex(@"Schlüssel »\(([^)]+)\)")]
         public partial Regex NpgsqlExceptionKeyRegex();
 
+        private readonly TimeSpan _usernameChangeCooldown = TimeSpan.FromDays(3);
         private readonly string _connectionString = ReadConnString();
         private readonly PersonalDataDbContext _dbContext;
 
@@ -166,7 +168,7 @@ namespace Server_Messenger.PersonalDataDb
 
                 if (affectedRelationship.Id == -1)
                 {
-                    User? affectedUser = await GetUser(affectedRelationship.Username, affectedRelationship.HashTag);
+                    User? affectedUser = await GetUser(affectedRelationship.Username, affectedRelationship.Hashtag);
                     if (affectedUser is null)
                         return new NpgsqlExceptionInfos(NpgsqlExceptions.UserNotFound);
 
@@ -253,14 +255,14 @@ namespace Server_Messenger.PersonalDataDb
             }
         }
 
-        public async Task<User?> GetUser(string username, string hashTag)
+        public async Task<User?> GetUser(string username, string Hashtag)
         {
             try
             {
                 string encryptedUsername = await Security.EncryptAesDatabaseAsync<string, string>(username);
-                string encryptedHashTag = await Security.EncryptAesDatabaseAsync<string, string>(hashTag);
+                string encryptedHashtag = await Security.EncryptAesDatabaseAsync<string, string>(Hashtag);
 
-                User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == encryptedUsername && x.HashTag == encryptedHashTag);
+                User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Username == encryptedUsername && x.Hashtag == encryptedHashtag);
                 return await Security.DecryptAesDatabaseAsync(user);
             }
             catch (NpgsqlException ex)
@@ -338,7 +340,7 @@ namespace Server_Messenger.PersonalDataDb
 
         #region Settings
 
-        public async Task ChangeProfilePicture(ProfilePictureUpdate profilePictureUpdate)
+        public async Task ChangeProfilePictureAsync(ProfilePictureUpdate profilePictureUpdate)
         {
             byte[] encryptedProfilePicture = await Security.EncryptAesDatabaseAsync<byte[], byte[]>(profilePictureUpdate.NewProfilePicture);
 
@@ -346,6 +348,29 @@ namespace Server_Messenger.PersonalDataDb
                 .ExecuteUpdateAsync(x => x.SetProperty(x => x.ProfilePicture, encryptedProfilePicture));
         }
 
+        public async Task<UsernameUpdateResult> ChangeUsernameAsync(UsernameUpdate usernameUpdate)
+        {
+            string encryptedUsername = await Security.EncryptAesDatabaseAsync<string, string>(usernameUpdate.Username);
+            string encryptedHashtag = await Security.EncryptAesDatabaseAsync<string, string>(usernameUpdate.Hashtag);
+
+            if (await _dbContext.Users.AnyAsync(x => x.Username == encryptedUsername && x.Hashtag == encryptedHashtag))
+            {
+                return UsernameUpdateResult.NameTaken;
+            }
+
+            User user = await _dbContext.Users.FirstAsync(x => x.Id == usernameUpdate.UserId);
+            if (user.LastUsernameChange is null || DateTime.UtcNow > user.LastUsernameChange + _usernameChangeCooldown)
+            {
+                user.LastUsernameChange = DateTime.UtcNow;
+                user.Username = encryptedUsername;
+                user.Hashtag = encryptedHashtag;
+
+                await _dbContext.SaveChangesAsync();
+                return UsernameUpdateResult.Successful;
+            }
+
+            return UsernameUpdateResult.OnCooldown;
+        }
 
         #endregion
 
@@ -362,7 +387,7 @@ namespace Server_Messenger.PersonalDataDb
                 Email = await Security.EncryptAesDatabaseAsync<string, string>("Cris@cris.com"),
                 Password = await Security.EncryptAesDatabaseAsync<string, string>("CrisCris"),
                 FaEnabled = false,
-                HashTag = await Security.EncryptAesDatabaseAsync<string, string>("#Cris"),
+                Hashtag = await Security.EncryptAesDatabaseAsync<string, string>("#Cris"),
                 Username = await Security.EncryptAesDatabaseAsync<string, string>("Cris"),
                 ProfilePicture = []
             };
@@ -401,23 +426,7 @@ namespace Server_Messenger.PersonalDataDb
 
         #endregion
 
-        public async Task RemoveUserAsync(long userId)
-        {
-            try
-            {
-                User? userToRemove = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
-
-                if (userToRemove != null)
-                {
-                    _dbContext.Users.Remove(userToRemove);
-                    await _dbContext.SaveChangesAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                await HandleExceptionAsync(ex);
-            }
-        }
+        #region Handle Exceptions
 
         /// <summary>
         /// Logs and handles the exception
@@ -458,6 +467,26 @@ namespace Server_Messenger.PersonalDataDb
         {
             Logger.LogError(ex);
             await Server.ShutdownAsync();
+        }
+
+        #endregion
+
+        public async Task RemoveUserAsync(long userId)
+        {
+            try
+            {
+                User? userToRemove = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
+
+                if (userToRemove != null)
+                {
+                    _dbContext.Users.Remove(userToRemove);
+                    await _dbContext.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                await HandleExceptionAsync(ex);
+            }
         }
     }
 }

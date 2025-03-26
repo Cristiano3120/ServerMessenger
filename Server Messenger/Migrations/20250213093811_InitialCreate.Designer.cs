@@ -63,7 +63,7 @@ namespace Server_Messenger.Migrations
                     b.Property<bool>("FaEnabled")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("HashTag")
+                    b.Property<string>("Hashtag")
                         .IsRequired()
                         .HasColumnType("text");
 
