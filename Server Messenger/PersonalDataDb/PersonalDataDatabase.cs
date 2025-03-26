@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Data;
 using System.Text;
@@ -11,7 +11,6 @@ namespace Server_Messenger.PersonalDataDb
         [GeneratedRegex(@"Schlüssel »\(([^)]+)\)")]
         public partial Regex NpgsqlExceptionKeyRegex();
 
-        private readonly string _connectionString = ReadConnString();
         private readonly PersonalDataDbContext _dbContext;
 
         #region Init
@@ -19,7 +18,7 @@ namespace Server_Messenger.PersonalDataDb
         public PersonalDataDatabase()
         {
             DbContextOptions<PersonalDataDbContext> options = new DbContextOptionsBuilder<PersonalDataDbContext>()
-                .UseNpgsql(_connectionString).Options;
+                .UseNpgsql(ReadConnString()).Options;
 
             _dbContext = new PersonalDataDbContext(options);
 
