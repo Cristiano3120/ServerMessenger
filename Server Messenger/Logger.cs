@@ -69,14 +69,14 @@ namespace Server_Messenger
             foreach (StackFrame item in stackTrace.GetFrames())
             {
                 //Looking for the frame contains the infos about the error
-                if (item.GetMethod()?.Name != null && item.GetFileName() != null)
+                if (item.GetMethod()?.Name is not null && item.GetFileName() is not null)
                 {
                     stackFrame = item;
                     break;
                 }
             }
 
-            if (stackFrame != null)
+            if (stackFrame is not null)
             {
                 var methodName = stackFrame?.GetMethod()?.Name + "()";
                 var filename = stackFrame?.GetFileName() ?? "missing filename";
@@ -92,7 +92,7 @@ namespace Server_Messenger
 
             Log(ConsoleColor.Red, true, $"ERROR: {ex.Message}");
 
-            if (ex.InnerException != null)
+            if (ex.InnerException is not null)
                 LogError(ex.InnerException);
         }
 

@@ -1,5 +1,6 @@
-﻿using System.Net.WebSockets;
+﻿using JsonSerializer = Server_Messenger.Json.JsonSerializer;
 using System.Security.Cryptography;
+using System.Net.WebSockets;
 using System.Text.Json;
 
 namespace Server_Messenger
@@ -20,9 +21,9 @@ namespace Server_Messenger
         #region Create Account
         public static async Task CreateAccountAsync(WebSocket client, JsonElement message)
         {
-            User? user = JsonSerializer.Deserialize<User>(message, Server.JsonSerializerOptions);
+            User? user = JsonSerializer.Deserialize<User>(message);
 
-            if (user == null)
+            if (user is null)
             {
                 await Server.ClosingConnAsync(client);
                 return;
@@ -97,7 +98,7 @@ namespace Server_Messenger
         #region Handle Relationship Update
         public static async Task HandleRelationshipUpdateAsync(WebSocket client, JsonElement message)
         {
-            RelationshipUpdate relationshipUpdate = JsonSerializer.Deserialize<RelationshipUpdate>(message.GetProperty("relationshipUpdate"), Server.JsonSerializerOptions);
+            RelationshipUpdate relationshipUpdate = JsonSerializer.Deserialize<RelationshipUpdate>(message);
 
             PersonalDataDatabase database = new();
             NpgsqlExceptionInfos npgsqlExceptionInfos = await database.UpdateRelationshipAsync(relationshipUpdate);
@@ -112,22 +113,18 @@ namespace Server_Messenger
 
             if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.None)
             {
-                await InformAffectedUser(relationshipUpdate);
+                await InformAffectedUserAsync(relationshipUpdate);
             }
         }
 
-        /// <summary>
-        /// Informs the affected user that a relationship has been updated
-        /// </summary>
-        /// <returns></returns>
-        private static async Task InformAffectedUser(RelationshipUpdate pRelationshipUpdate)
+        private static async Task InformAffectedUserAsync(RelationshipUpdate pRelationshipUpdate)
         {
             long affectedClientId = pRelationshipUpdate.Relationship!.Id;
 
             if (affectedClientId == -1)
             {
                 PersonalDataDatabase database = new();
-                Relationship user = (Relationship)await database.GetUser(pRelationshipUpdate.Relationship.Username, pRelationshipUpdate.Relationship.Hashtag);
+                Relationship user = (Relationship)await database.GetUserAsync(pRelationshipUpdate.Relationship.Username, pRelationshipUpdate.Relationship.Hashtag);
                 affectedClientId = user!.Id;
             }
 
@@ -153,7 +150,7 @@ namespace Server_Messenger
 
         public static async Task HandleChatMessageAsync(JsonElement message)
         {
-            Message chatMessage = JsonSerializer.Deserialize<Message>(message.GetProperty("message"), Server.JsonSerializerOptions);
+            Message chatMessage = JsonSerializer.Deserialize<Message>(message.GetProperty("message"));
             long otherUserID = message.GetProperty("otherUserId").GetInt64();
 
             if (Server.Clients.TryGetValue(otherUserID, out WebSocket? receiverClient))
@@ -167,12 +164,12 @@ namespace Server_Messenger
             }
 
             ChatDatabase chatDatabase = new();
-            await chatDatabase.AddMessage(chatMessage, otherUserID);
+            await chatDatabase.AddMessageAsync(chatMessage, otherUserID);
         }
 
         public static async Task RequestToLoginAsync(WebSocket client, JsonElement message)
         {
-            LoginRequest loginRequest = JsonSerializer.Deserialize<LoginRequest>(message.GetProperty("loginRequest"), Server.JsonSerializerOptions);
+            LoginRequest loginRequest = JsonSerializer.Deserialize<LoginRequest>(message);
 
             if (loginRequest.IsEmpty())
             {
@@ -200,7 +197,7 @@ namespace Server_Messenger
 
             await Server.SendPayloadAsync(client, payload);
 
-            if (user == null)
+            if (user is null)
                 return;
 
             if (loginRequest.Token == "" && user.FaEnabled)
@@ -228,7 +225,7 @@ namespace Server_Messenger
 
         private static async Task SendFriendshipsAsync(WebSocket client, PersonalDataDatabase database, long userID)
         {
-            (NpgsqlExceptionInfos npgsqlExceptionInfos, HashSet<Relationship>? relationships) = await database.GetUsersRelationships(userID);
+            (NpgsqlExceptionInfos npgsqlExceptionInfos, HashSet<Relationship>? relationships) = await database.GetUsersRelationshipsAsync(userID);
 
             if (npgsqlExceptionInfos.Exception == NpgsqlExceptions.NoDataEntrys)
                 return;
@@ -249,7 +246,7 @@ namespace Server_Messenger
         private static async Task SendChatsAsync(WebSocket client, long userID)
         {
             ChatDatabase chatDatabase = new();
-            Chat[] chats = await chatDatabase.GetChats(userID);
+            Chat[] chats = await chatDatabase.GetChatsAsync(userID);
 
             var payload = new
             {

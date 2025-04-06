@@ -6,7 +6,7 @@ namespace Server_Messenger
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await Server.Start();
+            await Server.StartAsync();
             Action shutdownAsync = static async() => await Server.ShutdownAsync();
             _applicationLifetime.ApplicationStopping.Register(shutdownAsync);
         }

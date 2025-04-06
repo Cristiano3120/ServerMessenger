@@ -166,7 +166,7 @@ namespace Server_Messenger
         /// <returns></returns>
         public static async Task<User?> DecryptAesDatabaseAsync(User? user)
         {
-            return user == null
+            return user is null
                 ? null
                 : new()
                 {

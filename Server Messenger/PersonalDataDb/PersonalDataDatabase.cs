@@ -1,6 +1,4 @@
-using System;
 using System.Data;
-using System.Runtime.ConstrainedExecution;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
@@ -107,7 +105,7 @@ namespace Server_Messenger.PersonalDataDb
                 string encryptedPassword = await Security.EncryptAesDatabaseAsync<string, string>(password);
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == encryptedEmail && x.Password == encryptedPassword);
 
-                if (user == null)
+                if (user is null)
                     return (null, new NpgsqlExceptionInfos(NpgsqlExceptions.WrongLoginData));
 
                 if (!stayLoggedIn)
@@ -134,7 +132,7 @@ namespace Server_Messenger.PersonalDataDb
                 string encryptedToken = await Security.EncryptAesDatabaseAsync<string, string>(token);
                 User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Token == encryptedToken);
 
-                return user == null
+                return user is null
                     ? (null, new NpgsqlExceptionInfos(NpgsqlExceptions.TokenInvalid))
                     : (await Security.DecryptAesDatabaseAsync(user), new NpgsqlExceptionInfos());
             }
@@ -161,14 +159,14 @@ namespace Server_Messenger.PersonalDataDb
             try
             {
                 (User? user, Relationship? affectedRelationship, RelationshipState requestedRelationshipState) = relationshipUpdate;
-                if (affectedRelationship == null || user == null)
+                if (affectedRelationship is null || user is null)
                 {
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.PayloadDataMissing);
                 }
 
                 if (affectedRelationship.Id == -1)
                 {
-                    User? affectedUser = await GetUser(affectedRelationship.Username, affectedRelationship.Hashtag);
+                    User? affectedUser = await GetUserAsync(affectedRelationship.Username, affectedRelationship.Hashtag);
                     if (affectedUser is null)
                         return new NpgsqlExceptionInfos(NpgsqlExceptions.UserNotFound);
 
@@ -181,7 +179,7 @@ namespace Server_Messenger.PersonalDataDb
                 Relationships? blocked = await _dbContext.Relationships
                     .FirstOrDefaultAsync(x => x.RelationshipState == RelationshipState.Blocked && x.SenderId == affectedID && x.ReceiverId == user.Id);
 
-                if (blocked != null)
+                if (blocked is not null)
                     return new NpgsqlExceptionInfos(NpgsqlExceptions.RequestedUserIsBlocked);
 
                 switch (relationshipUpdate.RequestedRelationshipState)
@@ -218,7 +216,7 @@ namespace Server_Messenger.PersonalDataDb
                         Relationships? relationships = await _dbContext.Relationships
                             .FirstOrDefaultAsync(x => (x.SenderId == user.Id && x.ReceiverId == affectedID) || (x.SenderId == affectedID && x.ReceiverId == user.Id));
 
-                        if (relationships == null)
+                        if (relationships is null)
                             return new NpgsqlExceptionInfos(NpgsqlExceptions.NoDataEntrys);
 
                         _dbContext.Relationships.Remove(relationships);
@@ -255,7 +253,7 @@ namespace Server_Messenger.PersonalDataDb
             }
         }
 
-        public async Task<User?> GetUser(string username, string Hashtag)
+        public async Task<User?> GetUserAsync(string username, string Hashtag)
         {
             try
             {
@@ -277,26 +275,7 @@ namespace Server_Messenger.PersonalDataDb
             }
         }
 
-        public async Task<User?> GetUser(long userId)
-        {
-            try
-            {
-                User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
-                return await Security.DecryptAesDatabaseAsync(user);
-            }
-            catch (NpgsqlException ex)
-            {
-                await HandleNpgsqlExceptionAsync(ex);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                await HandleExceptionAsync(ex);
-                return null;
-            }
-        }
-
-        public async Task<(NpgsqlExceptionInfos, HashSet<Relationship>?)> GetUsersRelationships(long id)
+        public async Task<(NpgsqlExceptionInfos, HashSet<Relationship>?)> GetUsersRelationshipsAsync(long id)
         {
             try
             {
@@ -314,7 +293,7 @@ namespace Server_Messenger.PersonalDataDb
                     User? searchedUser = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == searchedUserId);
                     searchedUser = await Security.DecryptAesDatabaseAsync(searchedUser);
 
-                    if (searchedUser == null)
+                    if (searchedUser is null)
                         return (new NpgsqlExceptionInfos(NpgsqlExceptions.NoDataEntrys), null);
 
                     Relationship relationship = (Relationship)searchedUser;
@@ -376,9 +355,9 @@ namespace Server_Messenger.PersonalDataDb
 
         #region Tests
 
-        public async Task AddTestUsersToDb()
+        public async Task AddTestUsersToDbAsync()
         {
-            await RemoveTestUsers();
+            await RemoveTestUsersAsync();
 
             User user = new()
             {
@@ -411,7 +390,7 @@ namespace Server_Messenger.PersonalDataDb
             }
         }
 
-        private async Task RemoveTestUsers()
+        private async Task RemoveTestUsersAsync()
         {
             string username = await Security.EncryptAesDatabaseAsync<string, string>("Cris");
             IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Username != username);
@@ -477,7 +456,7 @@ namespace Server_Messenger.PersonalDataDb
             {
                 User? userToRemove = _dbContext.Users.FirstOrDefault(x => x.Id == userId);
 
-                if (userToRemove != null)
+                if (userToRemove is not null)
                 {
                     _dbContext.Users.Remove(userToRemove);
                     await _dbContext.SaveChangesAsync();

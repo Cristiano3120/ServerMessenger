@@ -1,11 +1,12 @@
-﻿using System.Net.WebSockets;
+﻿using JsonSerializer = Server_Messenger.Json.JsonSerializer;
+using System.Net.WebSockets;
 using System.Text.Json;
 
 namespace Server_Messenger
 {
     public static class HandleSettingsUpdate
     {
-        public static async Task HandleReceivedMessage(WebSocket client, JsonDocument jsonDocument)
+        public static async Task HandleReceivedMessageAsync(WebSocket client, JsonDocument jsonDocument)
         {
             JsonElement message = jsonDocument.RootElement;
 
@@ -23,14 +24,14 @@ namespace Server_Messenger
 
         private static async Task ChangeProfilPictureAsync(JsonElement message)
         {
-            ProfilePictureUpdate profilePictureUpdate = JsonSerializer.Deserialize<ProfilePictureUpdate>(message.GetProperty("profilePictureUpdate"), Server.JsonSerializerOptions)!;
+            ProfilePictureUpdate profilePictureUpdate = JsonSerializer.Deserialize<ProfilePictureUpdate>(message)!;
             PersonalDataDatabase personalDataDatabase = new();
             await personalDataDatabase.ChangeProfilePictureAsync(profilePictureUpdate);
         }
 
         private static async Task ChangeUsernameAsync(WebSocket client, JsonElement message)
         {
-            UsernameUpdate usernameUpdate = JsonSerializer.Deserialize<UsernameUpdate>(message.GetProperty("usernameUpdate"), Server.JsonSerializerOptions);
+            UsernameUpdate usernameUpdate = JsonSerializer.Deserialize<UsernameUpdate>(message);
             PersonalDataDatabase personalDataDatabase = new();
             UsernameUpdateResult usernameUpdateResult = await personalDataDatabase.ChangeUsernameAsync(usernameUpdate);
 

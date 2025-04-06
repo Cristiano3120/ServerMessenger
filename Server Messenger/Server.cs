@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using JsonSerializer = Server_Messenger.Json.JsonSerializer;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
@@ -11,11 +12,11 @@ namespace Server_Messenger
     {
         public static ConcurrentDictionary<long, WebSocket> Clients { get; private set; } = new();
         public static ConcurrentDictionary<WebSocket, VerificationInfos> VerificationCodes { get; private set; } = new();
-        public static JsonSerializerOptions JsonSerializerOptions { get; private set; } = new();
         public static JsonElement Config { get; private set; } = JsonExtensions.ReadConfig();
         private static readonly string _emailPassword = ReadEmailPassword();
 
-        public static async Task Start()
+        #region State Control
+        public static async Task StartAsync()
         {
             Logger.LogWarning("Starting the Server!");
 
@@ -26,15 +27,10 @@ namespace Server_Messenger
                 args.SetObserved();
             };
 
-            JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-            JsonSerializerOptions.Converters.Add(new JsonConverters.UserConverter());
-            JsonSerializerOptions.Converters.Add(new JsonConverters.RelationshipConverter());
-            JsonSerializerOptions.WriteIndented = true;
-
             _ = Task.Run(ListenForConnectionsAsync);
 
             PersonalDataDatabase personalDataDatabase = new();
-            await personalDataDatabase.AddTestUsersToDb();
+            await personalDataDatabase.AddTestUsersToDbAsync();
         }
 
         public static async Task ShutdownAsync()
@@ -45,6 +41,8 @@ namespace Server_Messenger
                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server shutting down!", CancellationToken.None);
             }
         }
+
+        #endregion
 
         #region Handle clients
 
@@ -143,7 +141,7 @@ namespace Server_Messenger
                         await HandleUserRequests.HandleChatMessageAsync(message);
                         break;
                     case OpCode.SettingsUpdate:
-                        await HandleSettingsUpdate.HandleReceivedMessage(client, jsonDocument);
+                        await HandleSettingsUpdate.HandleReceivedMessageAsync(client, jsonDocument);
                         break;
                 }
             }
@@ -192,37 +190,6 @@ namespace Server_Messenger
 
         #endregion
 
-        internal static async Task SendPayloadAsync(WebSocket client, object payload, EncryptionMode encryptionMode = EncryptionMode.Aes)
-        {
-            try
-            {
-                ArgumentNullException.ThrowIfNull(payload);
-
-                if (client.State != WebSocketState.Open)
-                {
-                    Logger.LogWarning("MESSAGE CAN´T BE SENT: WEBSOCKETSTATE: ABORTED");
-                    return;
-                }
-
-                var jsonPayload = JsonSerializer.Serialize(payload, JsonSerializerOptions);
-                var buffer = Encoding.UTF8.GetBytes(jsonPayload);
-                var compressedData = Security.CompressData(buffer);
-
-                if (encryptionMode == EncryptionMode.Aes)
-                    buffer = await Security.EncryptAesAsync(client, compressedData);
-
-                await client.SendAsync(buffer, WebSocketMessageType.Binary, true, CancellationToken.None);
-
-                Logger.LogInformation(ConsoleColor.Cyan, false, $"[SENDING(Aes)]: {buffer.Length} bytes");
-                Logger.LogPayload(ConsoleColor.Blue, jsonPayload, "[SENDING(Aes)]:");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex);
-                await client.CloseAsync(WebSocketCloseStatus.InternalServerError, null, CancellationToken.None);
-            }
-        }
-
         #region Start Server helpers
 
         private static string GetUri(bool testing)
@@ -252,6 +219,37 @@ namespace Server_Messenger
             => Config.GetProperty("Gmail").GetProperty("Password").GetString()!;
 
         #endregion
+
+        internal static async Task SendPayloadAsync(WebSocket client, object payload, EncryptionMode encryptionMode = EncryptionMode.Aes)
+        {
+            try
+            {
+                ArgumentNullException.ThrowIfNull(payload);
+
+                if (client.State != WebSocketState.Open)
+                {
+                    Logger.LogWarning("MESSAGE CAN´T BE SENT: WEBSOCKETSTATE: ABORTED");
+                    return;
+                }
+
+                string jsonPayload = JsonSerializer.Serialize(payload);
+                byte[] buffer = Encoding.UTF8.GetBytes(jsonPayload);
+                byte[] compressedData = Security.CompressData(buffer);
+
+                if (encryptionMode == EncryptionMode.Aes)
+                    buffer = await Security.EncryptAesAsync(client, compressedData);
+
+                await client.SendAsync(buffer, WebSocketMessageType.Binary, true, CancellationToken.None);
+
+                Logger.LogInformation(ConsoleColor.Cyan, false, $"[SENDING(Aes)]: {buffer.Length} bytes");
+                Logger.LogPayload(ConsoleColor.Blue, jsonPayload, "[SENDING(Aes)]:");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex);
+                await client.CloseAsync(WebSocketCloseStatus.InternalServerError, null, CancellationToken.None);
+            }
+        }
 
         public static async Task SendEmail(User user, int verificationCode)
         {

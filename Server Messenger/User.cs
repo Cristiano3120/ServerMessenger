@@ -15,7 +15,7 @@ namespace Server_Messenger
         public DateOnly? Birthday { get; set; }
         public bool FaEnabled { get; set; }
         public string Token { get; set; } = "";
-        public DateTime? LastUsernameChange { get; set; } = null;
+        public DateTime? LastUsernameChange { get; set; }
 
         public static explicit operator Relationship(User? user)
         {

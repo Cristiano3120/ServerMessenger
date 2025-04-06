@@ -19,25 +19,27 @@ namespace Server_Messenger.ChatDb
             return Server.Config.GetProperty("ConnectionStrings").GetProperty("ChatDatabase").GetString()!;
         }
 
-        public async Task<Chat[]> GetChats(long id)
+        public async Task<Chat[]> GetChatsAsync(long id)
         {
             FilterDefinition<Chat> filter = Builders<Chat>.Filter.AnyEq(x => x.Members, id);
             Chat[] chats = [.. await _chats.Find(filter).ToListAsync()];
             for (int i = 0; i < chats.Length; i++)
             {
+                const byte maxMessagesOnLogOn = 30;
+                chats[i].Messages = [.. chats[i].Messages.TakeLast(maxMessagesOnLogOn)];
                 chats[i].Messages = await Security.DecryptAesDatabaseAsync(chats[i].Messages);
             }
 
             return chats;
         }
 
-        public async Task AddMessage(Message message, long receiverId)
+        public async Task AddMessageAsync(Message message, long receiverId)
         {
             message = await Security.EncryptAesDatabaseAsync(message);
             string chatID = CombineIds([message.SenderId, receiverId]);
             Chat chat = await _chats.Find(x => x.ChatID == chatID).FirstOrDefaultAsync();
 
-            if (chat != null)
+            if (chat is not null)
             {
                 chat.Messages.Add(message);
                 FilterDefinition<Chat> filter = Builders<Chat>.Filter.Eq(x => x.ChatID, chatID);
