@@ -1,4 +1,6 @@
-﻿using System.Collections.Concurrent;
+﻿// Ignore Spelling: Aes
+
+using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;

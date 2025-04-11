@@ -28,9 +28,8 @@ namespace Server_Messenger.PersonalDataDb
         }
 
         private static string ReadConnString()
-        {
-            return Server.Config.GetProperty("ConnectionStrings").GetProperty("PersonalDataDatabase").GetString()!;
-        }
+            => Server.Config.GetProperty("ConnectionStrings").GetProperty("PersonalDataDatabase").GetString()!;
+        
 
         #endregion
 

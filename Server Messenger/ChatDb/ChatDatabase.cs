@@ -15,9 +15,8 @@ namespace Server_Messenger.ChatDb
         }
 
         private static string ReadConnString()
-        {
-            return Server.Config.GetProperty("ConnectionStrings").GetProperty("ChatDatabase").GetString()!;
-        }
+            => Server.Config.GetProperty("ConnectionStrings").GetProperty("ChatDatabase").GetString()!;
+
 
         public async Task<Chat[]> GetChatsAsync(long id)
         {

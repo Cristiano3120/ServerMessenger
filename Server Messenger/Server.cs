@@ -283,8 +283,7 @@ namespace Server_Messenger
         public static string GetDynamicPath(string relativePath)
         {
             var projectBasePath = AppContext.BaseDirectory;
-
-            var binIndex = projectBasePath.IndexOf(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+            var binIndex = projectBasePath.IndexOf($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
 
             if (binIndex == -1)
             {
