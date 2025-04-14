@@ -96,7 +96,7 @@ namespace Server_Messenger
                     byte[] completeBytes = ms.ToArray();
                     byte[] decryptedData = await Security.DecryptMessageAsync(client, completeBytes);
                     byte[] decompressedBytes = Security.DecompressData(decryptedData);
-                    var completeMessage = Encoding.UTF8.GetString(decompressedBytes);
+                    string completeMessage = Encoding.UTF8.GetString(decompressedBytes);
 
                     Logger.LogPayload(ConsoleColor.Green, completeMessage, "[RECEIVED]:");
                     ClearMs(ms);

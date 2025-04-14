@@ -22,6 +22,7 @@ namespace Server_Messenger.ChatDb
         {
             FilterDefinition<Chat> filter = Builders<Chat>.Filter.AnyEq(x => x.Members, id);
             Chat[] chats = [.. await _chats.Find(filter).ToListAsync()];
+
             for (int i = 0; i < chats.Length; i++)
             {
                 const byte maxMessagesOnLogOn = 30;

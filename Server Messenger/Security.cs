@@ -1,6 +1,4 @@
-﻿// Ignore Spelling: Aes
-
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -16,8 +14,8 @@ namespace Server_Messenger
 
         static Security()
         {
-            var password = Server.Config.GetProperty("DatabaseAes").GetProperty("password").GetString()!;
-            var salt = Encoding.UTF8.GetBytes(Server.Config.GetProperty("DatabaseAes").GetProperty("salt").GetString()!);
+            string? password = Server.Config.GetProperty("DatabaseAes").GetProperty("password").GetString()!;
+            byte[] salt = Encoding.UTF8.GetBytes(Server.Config.GetProperty("DatabaseAes").GetProperty("salt").GetString()!);
 
             using (Rfc2898DeriveBytes pbkdf2 = new(password, salt, 500000, HashAlgorithmName.SHA256))
             {

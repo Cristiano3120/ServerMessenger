@@ -8,9 +8,12 @@ namespace Server_Messenger.PersonalDataDb
         public DbSet<User> Users { get; set; }
         public DbSet<Relationships> Relationships { get; set; }
 
+        #region Constructors
         public PersonalDataDbContext() { }
 
         public PersonalDataDbContext(DbContextOptions<PersonalDataDbContext> options) : base(options) { }
+
+        #endregion
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

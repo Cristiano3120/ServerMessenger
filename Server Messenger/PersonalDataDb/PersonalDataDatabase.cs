@@ -56,7 +56,7 @@ namespace Server_Messenger.PersonalDataDb
             catch (NpgsqlException ex)
             {
                 NpgsqlExceptionInfos exception = await HandleNpgsqlExceptionAsync(ex);
-                if (exception.ColumnName == "id")
+                if (exception.ColumnName == nameof(user.Id).ToCamelCase())
                     await CreateAccountAsync(user);
 
                 return (exception, -1);
@@ -102,7 +102,9 @@ namespace Server_Messenger.PersonalDataDb
                 (string email, string password, bool stayLoggedIn) = loginRequest;
                 string encryptedEmail = await Security.EncryptAesDatabaseAsync<string, string>(email);
                 string encryptedPassword = await Security.EncryptAesDatabaseAsync<string, string>(password);
-                User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == encryptedEmail && x.Password == encryptedPassword);
+
+                User? user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == encryptedEmail 
+                    && x.Password == encryptedPassword);
 
                 if (user is null)
                     return (null, new NpgsqlExceptionInfos(NpgsqlExceptions.WrongLoginData));
@@ -185,7 +187,7 @@ namespace Server_Messenger.PersonalDataDb
                 {
                     case RelationshipState.Pending:
                         Relationships? dbRelationship = await _dbContext.Relationships
-                            .FirstOrDefaultAsync(r => r.SenderId == user.Id && r.ReceiverId == affectedID);
+                            .FirstOrDefaultAsync(x => x.SenderId == user.Id && x.ReceiverId == affectedID);
 
                         if (dbRelationship is null)
                         {
@@ -280,7 +282,7 @@ namespace Server_Messenger.PersonalDataDb
             {
                 HashSet<Relationships> relations = [.._dbContext.Relationships
                     .Where(x => x.SenderId == id && x.RelationshipState != RelationshipState.Pending
-                    || x.ReceiverId == id && x.RelationshipState != RelationshipState.Blocked)];
+                        || x.ReceiverId == id && x.RelationshipState != RelationshipState.Blocked)];
 
                 HashSet<Relationship> relationships = [];
                 foreach (Relationships relation in relations)
@@ -297,7 +299,6 @@ namespace Server_Messenger.PersonalDataDb
 
                     Relationship relationship = (Relationship)searchedUser;
                     relationship.RelationshipState = relation.RelationshipState;
-
                     relationships.Add(relationship);
                 }
 
