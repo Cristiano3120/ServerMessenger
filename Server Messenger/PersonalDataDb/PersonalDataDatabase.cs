@@ -392,13 +392,64 @@ namespace Server_Messenger.PersonalDataDb
 
         private async Task RemoveTestUsersAsync()
         {
-            string username = await Security.EncryptAesDatabaseAsync<string, string>("Cris");
-            IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Username != username);
+            IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Id >= 10);
 
             foreach (User user in testUsers)
             {
                 _dbContext.Users.Remove(user);
             }
+
+            await _dbContext.SaveChangesAsync();
+        }
+
+        private async Task RemoveTestAccsAsync()
+        {
+            IQueryable<User> testUsers = _dbContext.Users.Where(x => x.Id == 1 || x.Id == 2);
+            foreach (User user in testUsers)
+            {
+                _dbContext.Users.Remove(user);
+            }
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task AddTwoTestAccs()
+        {
+            await RemoveTestAccsAsync();
+
+            User user = new()
+            {
+                Biography = "",
+                Birthday = DateOnly.MaxValue,
+                Email = "Test@Test.com",
+                Password = "TestTest",
+                FaEnabled = false,
+                Username = "Test1",
+                Hashtag = "#Test",
+                Id = 1,
+                Token = "TestToken1",
+            };
+
+            User user2 = new()
+            {
+                Biography = "",
+                Birthday = DateOnly.MaxValue,
+                Email = "Test2@Test.com",
+                Password = "TestTest",
+                FaEnabled = false,
+                Username = "Test2",
+                Hashtag = "#Test",
+                Id = 2,
+                Token = "TestToken2",
+            };
+
+            Logger.LogWarning($"Added test user1. Token: {user.Token}");
+            Logger.LogWarning($"Added test user2. Token: {user2.Token}");
+
+            user = await Security.EncryptAesDatabaseAsync(user);
+            user2 = await Security.EncryptAesDatabaseAsync(user2);
+
+            _dbContext.Users.Add(user);
+            _dbContext.Users.Add(user2);
 
             await _dbContext.SaveChangesAsync();
         }

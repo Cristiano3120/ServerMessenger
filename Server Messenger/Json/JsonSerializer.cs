@@ -8,8 +8,6 @@ namespace Server_Messenger.Json
 
         static JsonSerializer()
         {
-            _jsonSerializerOptions.Converters.Add(new JsonConverters.RelationshipConverter());
-            _jsonSerializerOptions.Converters.Add(new JsonConverters.UserConverter());
             _jsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             _jsonSerializerOptions.WriteIndented = true;
         }

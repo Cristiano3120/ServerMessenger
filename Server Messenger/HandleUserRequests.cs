@@ -255,5 +255,25 @@ namespace Server_Messenger
             };
             await Server.SendPayloadAsync(client, payload);
         }
+
+        public static async Task HandleDeleteMessageAsync(JsonElement message)
+        {
+            DeleteMessage deleteMessage = JsonSerializer.Deserialize<DeleteMessage>(message);
+            string chatId = ChatDatabase.CombineIds([deleteMessage.SenderId, deleteMessage.ReceiverId]);
+
+            ChatDatabase chatDatabase = new();
+            await chatDatabase.DeleteMessageAsync(chatId, deleteMessage.MessageGuid);
+
+            if (Server.Clients.TryGetValue(deleteMessage.ReceiverId, out WebSocket? client))
+            {
+                var payload = new
+                {
+                    opCode = OpCode.DeleteMessage,
+                    deleteMessage,
+                };
+
+                await Server.SendPayloadAsync(client, payload);
+            }
+        }
     }
 }

@@ -17,7 +17,6 @@ namespace Server_Messenger.ChatDb
         private static string ReadConnString()
             => Server.Config.GetProperty("ConnectionStrings").GetProperty("ChatDatabase").GetString()!;
 
-
         public async Task<Chat[]> GetChatsAsync(long id)
         {
             FilterDefinition<Chat> filter = Builders<Chat>.Filter.AnyEq(x => x.Members, id);
@@ -58,7 +57,23 @@ namespace Server_Messenger.ChatDb
             }
         }
 
-        private static string CombineIds(long[] ids)
+        public async Task DeleteMessageAsync(string chatID, Guid guid)
+        {
+            FilterDefinition<Chat> filter = Builders<Chat>.Filter.Eq(x => x.ChatID, chatID);
+            Chat chat = await _chats.Find(filter).FirstOrDefaultAsync();
+
+            if (chat != null)
+            {
+                int removed = chat.Messages.RemoveAll(x => x.Guid == guid);
+
+                if (removed > 0)
+                {
+                    await _chats.ReplaceOneAsync(filter, chat);
+                }
+            }
+        }
+
+        public static string CombineIds(long[] ids)
         {
             Array.Sort(ids);
             return string.Join("-", ids);

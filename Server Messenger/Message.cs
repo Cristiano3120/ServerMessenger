@@ -1,4 +1,14 @@
-﻿namespace Server_Messenger
+﻿using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
+
+namespace Server_Messenger
 {
-    public readonly record struct Message(string ChatId, long SenderId, DateTime DateTime, string Content) { }
+    public readonly struct Message() 
+    {
+        [BsonRepresentation(BsonType.String)]
+        public Guid Guid { get; init; } = Guid.NewGuid();
+        public long SenderId { get; init; }
+        public DateTime DateTime { get; init; }
+        public string Content { get; init; } = "";
+    }
 }

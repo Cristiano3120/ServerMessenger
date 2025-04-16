@@ -31,6 +31,7 @@ namespace Server_Messenger
 
             PersonalDataDatabase personalDataDatabase = new();
             await personalDataDatabase.AddTestUsersToDbAsync();
+            await personalDataDatabase.AddTwoTestAccs();
         }
 
         public static async Task ShutdownAsync()
@@ -142,6 +143,9 @@ namespace Server_Messenger
                         break;
                     case OpCode.SettingsUpdate:
                         await HandleSettingsUpdate.HandleReceivedMessageAsync(client, jsonDocument);
+                        break;
+                    case OpCode.DeleteMessage:
+                        await HandleUserRequests.HandleDeleteMessageAsync(message);
                         break;
                 }
             }
